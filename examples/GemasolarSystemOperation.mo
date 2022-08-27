@@ -35,9 +35,10 @@ model GemasolarSystemOperation
 	parameter Integer year = 2006 "Meteorological year";
 
 	// Field
-	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_H230_salt_MDBA.motab");
+	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_oelts_N08811_salt_MDBA_600.motab");
+	parameter String hav_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_halts_N08811_salt_MDBA_600.motab");
 	parameter Real metadata_list[23] = metadata(opt_file);
-	parameter Solar_angles angles = Solar_angles.dec_hra "Angles used in the lookup table file";
+	parameter Solar_angles angles = Solar_angles.elo_hra "Angles used in the lookup table file";
 
 	parameter Real SM = R_des*eta_rec/Q_flow_des "Solar multiple";
 	parameter Real land_mult = 6.281845377885782 "Land area multiplier";
@@ -74,10 +75,10 @@ model GemasolarSystemOperation
 	parameter Real t_storage(unit = "h") = 12 "Hours of storage";
 
 	parameter SI.Temperature T_cold_set = CV.from_degC(290) "Cold tank target temperature";
-	parameter SI.Temperature T_hot_set = CV.from_degC(565) "Hot tank target temperature";
+	parameter SI.Temperature T_hot_set = CV.from_degC(600) "Hot tank target temperature";
 
 	parameter SI.Temperature T_cold_start = CV.from_degC(290) "Cold tank starting temperature";
-	parameter SI.Temperature T_hot_start = CV.from_degC(565) "Hot tank starting temperature";
+	parameter SI.Temperature T_hot_start = CV.from_degC(600) "Hot tank starting temperature";
 
 	parameter SI.Temperature T_cold_aux_set = CV.from_degC(280) "Cold tank auxiliary heater set-point temperature";
 	parameter SI.Temperature T_hot_aux_set = CV.from_degC(500) "Hot tank auxiliary heater set-point temperature";
@@ -301,7 +302,9 @@ model GemasolarSystemOperation
 		nu_start = nu_start,
 		wea_file = wea_file,
 		opt_file = opt_file,
-		redeclare model Optical = Models.CSP.CRS.HeliostatsField.Optical.Table(angles = angles, file = opt_file)) annotation(
+		file_oelts = opt_file,
+		file_halts = hav_file,
+		angles = angles) annotation(
 			Placement(transformation(extent = {{-88, 2}, {-56, 36}})));
 
 	// Receiver

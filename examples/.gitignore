@@ -50,3 +50,5 @@ SolarTherm_*.libs
 Modelica_Utilities_*
 resources
 results*
+GemasolarSystemOperation
+GemasolarSystemOperation*.[ch]

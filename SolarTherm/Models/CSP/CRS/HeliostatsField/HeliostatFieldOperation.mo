@@ -8,17 +8,12 @@ model HeliostatFieldOperation
   parameter Integer year=1996 "Year";
   parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/Daggett_Ca_TMY32.motab");
   parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gen3liq_sodium_dagget.motab");
+  parameter SolarTherm.Types.Solar_angles angles = SolarTherm.Types.Solar_angles.dec_hra "Angles used in the lookup table file";
   parameter nSI.Angle_deg lon=133.889 "Longitude (+ve East)" annotation(Dialog(group="System location"));
   parameter nSI.Angle_deg lat=-23.795 "Latitude (+ve North)" annotation(Dialog(group="System location"));
   parameter Integer n_h=1 "Number of heliostats" annotation(Dialog(group="Technical data"));
   parameter SI.Area A_h=4 "Heliostat's Area" annotation(Dialog(group="Technical data"));
   parameter Real he_av=0.99 "Heliostat availability" annotation(Dialog(group="Technical data"));
-  replaceable model Optical =
-      SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.Constant
-  constrainedby
-    SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.OpticalEfficiency
-    "Total optical efficency"
-    annotation (Dialog(group="Technical data",__Dymola_label="nu"), choicesAllMatching=true);
   parameter Boolean use_on = false
     "= true to display when solar field is connected"
       annotation (Dialog(group="Operating strategy"), Evaluate=true, HideResult=true, choices(checkBox=true));
@@ -38,7 +33,6 @@ model HeliostatFieldOperation
   parameter SI.Power W_track=0.055e3 "Tracking power for a single heliostat" annotation(Dialog(group="Parasitic loads"));
   parameter SI.HeatFlowRate Q_curtail=1e10 "Fixed heat flow rate for curtailment" annotation(min=0,Dialog(group="Operating strategy"));
 
-  Optical optical(hra=solar.hra, dec=solar.dec, lat=lat);
   SI.HeatFlowRate Q_raw;
   SI.HeatFlowRate Q_net;
 
@@ -83,47 +77,26 @@ model HeliostatFieldOperation
   Real counter(start = const_t);
 
   // Variables flux interpolation
-  SI.HeatFlux CG[N];
-  parameter Integer N = 450 "Number of tube segments in flowpath";
-  parameter String tableNames[N] = {"flux_" + String(i) for i in 1:N};
-  parameter String tablemflowNames[4] = {"mflow_" + String(i-1) for i in 1:4};
-  parameter String file_dni0 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr3.motab");
-  parameter String file_dni1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr2.motab");
-  parameter String file_dni2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr1.motab");
-  parameter String file_dni3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr0.motab");
-  parameter String file_mflow = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/mflow_a230_salt_FP1.motab");
+  parameter String file_oelts = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_oelts_N08811_salt_MDBA_565.motab");
+  parameter String file_halts = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_halts_N08811_salt_MDBA_565.motab");
 
-  Modelica.Blocks.Tables.CombiTable2D m_flow[4](
-    each fileName = file_mflow, 
-    each tableOnFile = true, 
-    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
-    tableName = tablemflowNames);
-  SI.MassFlowRate m_flow_tb;
-protected  
-  // Variables flux interpolation
-  Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(solar.dec));
-  Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(solar.hra));
+  SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.TableMDBA oelts(
+    angles = angles,
+    file = file_oelts,
+    hra=solar.hra,
+    dec=solar.dec,
+    lat=lat,
+    dni=solar.dni,
+    ele=ele);
 
-  Modelica.Blocks.Tables.CombiTable2D flux_dni0[N](
-    each fileName = file_dni0, 
-    each tableOnFile = true, 
-    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
-    tableName = tableNames);
-  Modelica.Blocks.Tables.CombiTable2D flux_dni1[N](
-    each fileName = file_dni1, 
-    each tableOnFile = true, 
-    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
-    tableName = tableNames);
-  Modelica.Blocks.Tables.CombiTable2D flux_dni2[N](
-    each fileName = file_dni2, 
-    each tableOnFile = true, 
-    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
-    tableName = tableNames);
-  Modelica.Blocks.Tables.CombiTable2D flux_dni3[N](
-    each fileName = file_dni3, 
-    each tableOnFile = true, 
-    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
-    tableName = tableNames);
+  SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.TableMDBA halts(
+    angles = angles,
+    file = file_halts,
+    hra=solar.hra,
+    dec=solar.dec,
+    lat=lat,
+    dni=solar.dni,
+    ele=ele);
 
   Modelica.Blocks.Types.ExternalCombiTable1D wea_table = Modelica.Blocks.Types.ExternalCombiTable1D(
     tableName = "data",
@@ -133,12 +106,11 @@ protected
     smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative);
 
   Modelica.Blocks.Types.ExternalCombiTable2D opt_table = Modelica.Blocks.Types.ExternalCombiTable2D(
-    tableName = "optics", 
+    tableName = "optics_2", 
     fileName = opt_file, 
     table = fill(0.0, 0, 2), 
     smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative);
 
-//protected
   SI.Power W_loss1;
   SI.Power W_loss2;
   discrete Modelica.SIunits.Time t_on(start=0, fixed=true) "Sunrise time instant";
@@ -154,7 +126,7 @@ protected
 
 initial equation
   on_internal=Q_raw>Q_start;
-  on_hf_forecast = ele>ele_min;
+  on_hf = ele>ele_min;
 equation
   if use_on then
     connect(on,on_internal);
@@ -171,7 +143,7 @@ equation
   end if;
 
   on_hf=(ele>ele_min) and (Wspd_internal<Wspd_max);
-  Q_raw= if on_hf_forecast then max(he_av*n_h*A_h*solar.dni*optical.nu,0) else 0;
+  Q_raw= if on_hf then max(he_av*n_h*A_h*solar.dni*oelts.nu*halts.nu,0) else 0;
 
   // Operation heuristics
   der(counter) = 1;
@@ -192,25 +164,6 @@ equation
   end when;
   // End Operation heuristics
 
-  // Flux interpolation
-  for i in 1:N loop
-    connect(u1.y, flux_dni0[i].u1);
-    connect(u2.y, flux_dni0[i].u2);
-    connect(u1.y, flux_dni1[i].u1);
-    connect(u2.y, flux_dni1[i].u2);
-    connect(u1.y, flux_dni2[i].u1);
-    connect(u2.y, flux_dni2[i].u2);
-    connect(u1.y, flux_dni3[i].u1);
-    connect(u2.y, flux_dni3[i].u2);
-    // FluxInterpolation(nu_52, nu_76, nu_100, nu_124, ele, sun.dni, ele_min)
-    CG[i] = max(0, FluxInterpolation(flux_dni0[i].y*1e3, flux_dni1[i].y*1e3, flux_dni2[i].y*1e3, flux_dni3[i].y*1e3, ele, solar.dni, ele_min));
-  end for;
-  for i in 1:4 loop
-    connect(u1.y, m_flow[i].u1);
-    connect(u2.y, m_flow[i].u2);
-  end for;
-  m_flow_tb = max(0, FluxInterpolation(m_flow[4].y, m_flow[3].y, m_flow[2].y, m_flow[1].y, ele, solar.dni, ele_min));
-  // End Flux interpolation 
   when Q_raw>Q_start then
     on_internal=true;
   elsewhen Q_raw<Q_min then
@@ -220,8 +173,6 @@ equation
   Q_net= if on_internal then (if defocus_internal then min(Q_defocus,Q_raw) else min(Q_curtail,Q_raw)) else 0;
   heat.Q_flow= -Q_net;
   elo=SolarTherm.Models.Sources.SolarFunctions.eclipticLongitude(solar.dec);
-//   optical.hra=solar.hra;
-//   optical.dec=solar.dec;
 
   ele=SolarTherm.Models.Sources.SolarFunctions.elevationAngle(
     solar.dec,

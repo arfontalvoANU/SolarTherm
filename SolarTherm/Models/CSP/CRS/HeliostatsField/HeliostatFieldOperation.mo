@@ -143,7 +143,7 @@ equation
   end if;
 
   on_hf=(ele>ele_min) and (Wspd_internal<Wspd_max);
-  Q_raw= if on_hf then max(he_av*n_h*A_h*solar.dni*oelts.nu*halts.nu,0) else 0;
+  Q_raw= if on_hf then max(he_av*n_h*A_h*solar.dni*oelts.nu,0) else 0;
 
   // Operation heuristics
   der(counter) = 1;

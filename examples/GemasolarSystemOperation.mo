@@ -26,7 +26,7 @@ model GemasolarSystemOperation
 	parameter String sch_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Schedules/daily_sch_0.motab") if not const_dispatch "Discharging schedule from a file";
 
 	// Weather data
-	parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/seville_spain_37.558_-5.326_60_tmy_2005_2014.motab");
+	parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/seville_spain_tmy_2005_2014_shifted.motab");
 	parameter Real wdelay[8] = {0, 0, 0, 0, 0, 0, 0, 0} "Weather file delays";
 
 	parameter nSI.Angle_deg lon = -5.326 "Longitude (+ve East)";

@@ -80,6 +80,10 @@ model HeliostatFieldOperation
   parameter String file_oelts = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_oelts_N08811_salt_MDBA_565.motab");
   parameter String file_halts = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_halts_N08811_salt_MDBA_565.motab");
 
+  SI.HeatFlux CG[N];
+  SI.MassFlowRate m_flow_tb;
+  SI.Irradiance dni_clear = if ele>ele_min then 1363*0.7^((1./cos(0.5*pi-ele))^0.678) else 0;
+
   SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.TableMDBA oelts(
     angles = angles,
     file = file_oelts,
@@ -124,6 +128,51 @@ model HeliostatFieldOperation
   parameter SI.HeatFlowRate Q_min=nu_min*Q_design "Heliostat field turndown power" annotation(min=0,Dialog(group="Operating strategy"));
   parameter SI.HeatFlowRate Q_defocus=nu_defocus*Q_design "Heat flow rate limiter at defocus state" annotation(Dialog(group="Operating strategy",enable=use_defocus));
 
+  Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(elo));
+  Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(solar.hra));
+  parameter Integer N = 450 "Number of tube segments in flowpath";
+  parameter String tableNames[N] = {"flux_" + String(i) for i in 1:N};
+  parameter String tablemflowNames[4] = {"mflow_" + String(i) for i in 1:4}; //1:0.56 2:0.87 3:1.0 4:1.39
+  parameter String file_dni1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_0.56_600.motab");
+  parameter String file_dni2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_0.87_600.motab");
+  parameter String file_dni3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_1.0_600.motab");
+  parameter String file_dni4 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_1.39_600.motab");
+  parameter String file_mflow = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/mflow_N08811_salt_path1_600.motab");
+
+protected
+
+  //DNI ratio 0.56
+  Modelica.Blocks.Tables.CombiTable2D flux_dni1[N](
+    each fileName = file_dni1, 
+    each tableOnFile = true, 
+    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+    tableName = tableNames);
+  //DNI ratio 0.87
+  Modelica.Blocks.Tables.CombiTable2D flux_dni2[N](
+    each fileName = file_dni2, 
+    each tableOnFile = true, 
+    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+    tableName = tableNames);
+  //DNI ratio 1.0
+  Modelica.Blocks.Tables.CombiTable2D flux_dni3[N](
+    each fileName = file_dni3, 
+    each tableOnFile = true, 
+    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+    tableName = tableNames);
+  //DNI ratio 1.39
+  Modelica.Blocks.Tables.CombiTable2D flux_dni4[N](
+    each fileName = file_dni4, 
+    each tableOnFile = true, 
+    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+    tableName = tableNames);
+
+  // Mass flow rate
+  Modelica.Blocks.Tables.CombiTable2D m_flow[4](
+    each fileName = file_mflow, 
+    each tableOnFile = true, 
+    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+    tableName = tablemflowNames);
+
 initial equation
   on_internal=Q_raw>Q_start;
   on_hf = ele>ele_min;
@@ -163,6 +212,26 @@ equation
     on_hf_forecast = false;
   end when;
   // End Operation heuristics
+
+  // Flux interpolation
+  for i in 1:N loop
+    connect(u1.y, flux_dni1[i].u1);
+    connect(u2.y, flux_dni1[i].u2);
+    connect(u1.y, flux_dni2[i].u1);
+    connect(u2.y, flux_dni2[i].u2);
+    connect(u1.y, flux_dni3[i].u1);
+    connect(u2.y, flux_dni3[i].u2);
+    connect(u1.y, flux_dni4[i].u1);
+    connect(u2.y, flux_dni4[i].u2);
+    //             FluxInterpolation(flux_0.56,          flux_0.87,          flux_1.0,           flux_1.39,          ele, sun.dni,   ele_min)
+    CG[i] = max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, ele, solar.dni, ele_min));
+  end for;
+
+  // Mass flow rate interpolation
+  for i in 1:4 loop
+    connect(u1.y, m_flow[i].u1);
+    connect(u2.y, m_flow[i].u2);
+  end for;  m_flow_tb = max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, ele, solar.dni, ele_min));
 
   when Q_raw>Q_start then
     on_internal=true;

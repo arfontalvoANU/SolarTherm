@@ -37,6 +37,11 @@ model GemasolarSystemOperation
 	// Field
 	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_oelts_N08811_salt_MDBA_600.motab");
 	parameter String hav_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gemasolar_halts_N08811_salt_MDBA_600.motab");
+	parameter String file_dni1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr0.motab");
+	parameter String file_dni2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr1.motab");
+	parameter String file_dni3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr2.motab");
+	parameter String file_dni4 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_a230_salt_FP1_DNIr3.motab");
+	parameter String file_mflow = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/mflow_a230_salt_FP1.motab");
 	parameter Real metadata_list[23] = metadata(opt_file);
 	parameter Solar_angles angles = Solar_angles.elo_hra "Angles used in the lookup table file";
 
@@ -304,6 +309,11 @@ model GemasolarSystemOperation
 		opt_file = opt_file,
 		file_oelts = opt_file,
 		file_halts = hav_file,
+		file_dni1 = file_dni1,
+		file_dni2 = file_dni2,
+		file_dni3 = file_dni3,
+		file_dni4 = file_dni4,
+		file_mflow = file_mflow,
 		angles = angles) annotation(
 			Placement(transformation(extent = {{-88, 2}, {-56, 36}})));
 

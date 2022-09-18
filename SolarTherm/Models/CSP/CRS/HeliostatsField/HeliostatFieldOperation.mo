@@ -224,7 +224,7 @@ equation
     connect(u1.y, flux_dni4[i].u1);
     connect(u2.y, flux_dni4[i].u2);
     //             FluxInterpolation(flux_0.56,          flux_0.87,          flux_1.0,           flux_1.39,          ele, sun.dni,   ele_min)
-    CG[i] = if on_hf then max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, ele, solar.dni, ele_min)) else 0;
+    CG[i] = if on_internal then max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, ele, solar.dni, ele_min)) else 0;
   end for;
 
   // Mass flow rate interpolation
@@ -232,7 +232,7 @@ equation
     connect(u1.y, m_flow[i].u1);
     connect(u2.y, m_flow[i].u2);
   end for;
-  m_flow_tb = if on_hf then max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, ele, solar.dni, ele_min)) else 0;
+  m_flow_tb = if on_internal then max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, ele, solar.dni, ele_min)) else 0;
 
   when Q_raw>Q_start then
     on_internal=true;

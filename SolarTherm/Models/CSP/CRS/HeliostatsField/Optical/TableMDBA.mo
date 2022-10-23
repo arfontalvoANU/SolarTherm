@@ -11,7 +11,7 @@ model TableMDBA "From table"
     "Table angles"
     annotation (Dialog(group="Table data interpretation"));
 
-  parameter String opticsTableNames[4] = {"optics_" + String(i-1) for i in 1:4};
+  parameter String opticsTableNames[5] = {"optics_" + String(i-1) for i in 1:5};
 
   parameter SI.Angle ele_min=Modelica.SIunits.Conversions.from_deg(8) "Heliostat stow deploy angle"
     annotation(min=0,Dialog(group="Operating strategy"));
@@ -21,7 +21,7 @@ model TableMDBA "From table"
   input SI.Angle ele;
   input SI.Irradiance dni;
 
-  Modelica.Blocks.Tables.CombiTable2D nu_table[4](
+  Modelica.Blocks.Tables.CombiTable2D nu_table[5](
     each fileName = file, 
     each tableOnFile = true, 
     each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
@@ -46,9 +46,9 @@ equation
     angle2=SolarTherm.Models.Sources.SolarFunctions.solarAzimuth(dec,hra,lat);
   end if;
 
-  nu = min(1,max(0, FluxInterpolation(nu_table[1].y, nu_table[2].y, nu_table[3].y, nu_table[4].y, ele, dni, ele_min)));
+  nu = min(1,max(0, FluxInterpolation(nu_table[1].y, nu_table[2].y, nu_table[3].y, nu_table[4].y, nu_table[5].y, ele, dni, ele_min)));
 
-  for i in 1:4 loop
+  for i in 1:5 loop
     connect(angle2_input.y, nu_table[i].u2);
     connect(angle1_input.y, nu_table[i].u1);
   end for;

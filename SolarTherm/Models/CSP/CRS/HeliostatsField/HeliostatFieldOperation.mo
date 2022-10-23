@@ -132,11 +132,12 @@ model HeliostatFieldOperation
   Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(solar.hra));
   parameter Integer N = 450 "Number of tube segments in flowpath";
   parameter String tableNames[N] = {"flux_" + String(i) for i in 1:N};
-  parameter String tablemflowNames[4] = {"mflow_" + String(i) for i in 1:4}; //1:0.56 2:0.87 3:1.0 4:1.39
+  parameter String tablemflowNames[5] = {"mflow_" + String(i) for i in 1:5}; //1:0.56 2:0.87 3:1.0 4:1.20 5:1.39
   parameter String file_dni1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_0.56_600.motab");
   parameter String file_dni2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_0.87_600.motab");
   parameter String file_dni3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_1.0_600.motab");
   parameter String file_dni4 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_1.39_600.motab");
+  parameter String file_dni5 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/flux_N08811_salt_path2_1.39_600.motab");
   parameter String file_mflow = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/mflow_N08811_salt_path1_600.motab");
 
 protected
@@ -159,15 +160,21 @@ protected
     each tableOnFile = true, 
     each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
     tableName = tableNames);
-  //DNI ratio 1.39
+  //DNI ratio 1.20
   Modelica.Blocks.Tables.CombiTable2D flux_dni4[N](
     each fileName = file_dni4, 
     each tableOnFile = true, 
     each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
     tableName = tableNames);
+  //DNI ratio 1.39
+  Modelica.Blocks.Tables.CombiTable2D flux_dni5[N](
+    each fileName = file_dni5, 
+    each tableOnFile = true, 
+    each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+    tableName = tableNames);
 
   // Mass flow rate
-  Modelica.Blocks.Tables.CombiTable2D m_flow[4](
+  Modelica.Blocks.Tables.CombiTable2D m_flow[5](
     each fileName = file_mflow, 
     each tableOnFile = true, 
     each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
@@ -223,16 +230,18 @@ equation
     connect(u2.y, flux_dni3[i].u2);
     connect(u1.y, flux_dni4[i].u1);
     connect(u2.y, flux_dni4[i].u2);
-    //             FluxInterpolation(flux_0.56,          flux_0.87,          flux_1.0,           flux_1.39,          ele, sun.dni,   ele_min)
-    CG[i] = if on_internal then max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, ele, solar.dni, ele_min)) else 0;
+    connect(u1.y, flux_dni5[i].u1);
+    connect(u2.y, flux_dni5[i].u2);
+    //                                 FluxInterpolation(flux_0.56,      flux_0.87,      flux_1.00,      flux_1.20,      flux_1.39,      ele, sun.dni,   ele_min)
+    CG[i] = if on_internal then max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, solar.dni, ele_min)) else 0;
   end for;
 
   // Mass flow rate interpolation
-  for i in 1:4 loop
+  for i in 1:5 loop
     connect(u1.y, m_flow[i].u1);
     connect(u2.y, m_flow[i].u2);
   end for;
-  m_flow_tb = if on_internal then max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, ele, solar.dni, ele_min)) else 0;
+  m_flow_tb = if on_internal then max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, solar.dni, ele_min)) else 0;
 
   when Q_raw>Q_start then
     on_internal=true;

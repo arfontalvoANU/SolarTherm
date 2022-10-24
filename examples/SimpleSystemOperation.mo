@@ -11,16 +11,17 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	import Modelica.SIunits.Conversions.*;
 
 	// Parameters
-	parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/solana_tmy_2008.motab");
+	parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/seville_spain_tmy_2005_2014_shifted.motab");
 	parameter String pri_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Prices/aemo_vic_2014.motab");
 	parameter Real pi = Modelica.Constants.pi;
 
-	parameter nSI.Angle_deg lon = -112.9795 "Longitude (+ve East)";
-	parameter nSI.Angle_deg lat = 32.9215 "Latitude (+ve North)";
-	parameter nSI.Time_hour t_zone = -8 "Local time zone (UCT=0)";
-	parameter Integer year = 2008 "Meteorological year";
+	parameter nSI.Angle_deg lon = -5.326 "Longitude (+ve East)";
+	parameter nSI.Angle_deg lat = 37.558 "Latitude (+ve North)";
+	parameter nSI.Time_hour t_zone = 1 "Local time zone (UCT=0)";
+	parameter Integer year = 2006 "Meteorological year";
 
-	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/gen3liq_350_MWth_150_m_2.0mrad.motab");
+	parameter SolarTherm.Types.Solar_angles angles = SolarTherm.Types.Solar_angles.elo_hra "Angles used in the lookup table file";
+	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/OELTs_Solstice.motab");
 	parameter Real metadata_list[23] = metadata(opt_file);
 	parameter Integer n_heliostat = integer(metadata_list[1]) "Number of heliostats";
 	parameter SI.Area A_heliostat = metadata_list[2] "Heliostat module reflective area";
@@ -41,18 +42,18 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	parameter Real par_fr = 0.1 "Parasitics fraction of power block rating at design point";
 	parameter SI.Power P_gross = P_name / (1 - par_fr);
 
+	parameter Integer horizon = 12 "Forecast horizon of the receiver dispatch algorithm";
+	parameter Real dt = 300 "Forecast time step, in seconds";
 	parameter Real const_t = -dt;
-	parameter Integer horizon = 120 "Forecast horizon of the receiver dispatch algorithm";
-	parameter Real dt = 60 "Forecast time step, in seconds";
 	parameter SI.Angle ele_min = from_deg(8) "Heliostat stow deploy angle";
 	parameter Real nu_min = 0.25;
 	parameter SI.HeatFlowRate Q_start = nu_min*Q_rec_out_des/eff_rec;
 	parameter SI.HeatFlowRate Q_stop = nu_min*Q_rec_out_des/eff_rec;
 
 	parameter SI.Area A_rec = pi*D_receiver*H_receiver "Area of receiver aperture";
-	parameter SI.Efficiency eff_rec = 0.85 "Receiver efficiency";
-	parameter SI.Efficiency eff_blk = 0.48 "Power block efficiency at design point";
-	parameter SI.Power P_name = 50e6 "Nameplate rating of power block";
+	parameter SI.Efficiency eff_rec = metadata_list[7] "Receiver efficiency";
+	parameter SI.Efficiency eff_blk = 0.3774 "Power block efficiency at design point";
+	parameter SI.Power P_name = 19.9e6 "Nameplate rating of power block";
 	parameter Real t_storage(unit="h") = 12 "Hours of storage";
 	parameter SI.Energy E_max = P_name*t_storage*3600/eff_blk "Max stored energy";
 
@@ -63,7 +64,7 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	parameter SI.Irradiance dni_stop = 100 "DNI at which concentrator stops";
 	parameter SI.Irradiance dni_start = 200 "DNI at which concentrator starts";
 
-	parameter SI.Time t_con_up_min = 0 "Minimum operation time after concentrator starts";
+	parameter SI.Time t_con_up_min = 39*60 "Minimum operation time after concentrator starts";
 	parameter SI.Time t_con_on_delay = 20*60 "Delay until concentrator starts";
 	parameter SI.Time t_con_off_delay = 15*60 "Delay until concentrator shuts off";
 	parameter SI.Time t_blk_on_delay = 15*60 "Delay until power block starts";
@@ -112,36 +113,101 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	FI.Money R_spot(start=0, fixed=true) "Spot market revenue";
 	SI.Energy E_elec(start=0, fixed=true) "Generate electricity";
 
+	// Flux interpolation parameters
+	parameter Integer N = 450 "Number of tube segments in flowpath";
+	parameter String opticsTableNames[5] = {"optics_" + String(i-1) for i in 1:5};
+	parameter String tableNames[N] = {"flux_" + String(i) for i in 1:N};
+	parameter String tablemflowNames[5] = {"mflow_" + String(i) for i in 1:5}; //1:0.56 2:0.87 3:1.0 4:1.20 5:1.39
+	parameter String file_dni1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/FLUX_fp1_d0.56.motab");
+	parameter String file_dni2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/FLUX_fp1_d0.87.motab");
+	parameter String file_dni3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/FLUX_fp1_d1.0.motab");
+	parameter String file_dni4 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/FLUX_fp1_d1.2.motab");
+	parameter String file_dni5 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/FLUX_fp1_d1.39.motab");
+	parameter String file_mflow = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/MFLOW_Solstice_fp1.motab");
+
 	// Models
+	SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.TableMDBA oelts(
+		angles = angles,
+		file = opt_file,
+		hra=sun.hra,
+		dec=sun.dec,
+		lat=lat,
+		dni=sun.dni,
+		ele=ele);
+
+	SolarTherm.Models.Sources.DataTable.DataTable data(
+		lon = lon,
+		lat = lat,
+		t_zone = t_zone,
+		year = year,
+		file = wea_file) annotation(
+			Placement(visible = true, transformation(extent = {{-132, -56}, {-102, -28}}, rotation = 0)));
+
 	Modelica.Blocks.Types.ExternalCombiTable1D wea_table = Modelica.Blocks.Types.ExternalCombiTable1D(
-		tableName = "weather",
+		tableName = "data",
 		fileName = wea_file,
 		table = fill(0.0, 0, 2),
-		columns = 1:9,
+		columns = 2:11,
 		smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative);
 
-	Modelica.Blocks.Types.ExternalCombiTable2D opt_table = Modelica.Blocks.Types.ExternalCombiTable2D(
-		tableName = "optics", 
-		fileName = opt_file, 
-		table = fill(0.0, 0, 2), 
-		smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative);
+	SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.TableMDBA eta_opt[horizon](
+		each angles = angles,
+		each file = opt_file,
+		each lat=lat,
+		each ele=ele);
+
+	Modelica.Blocks.Tables.CombiTable2D m_flow[5](
+		each fileName = file_mflow, 
+		each tableOnFile = true, 
+		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+		tableName = tablemflowNames);
+
+	//DNI ratio 0.56
+	Modelica.Blocks.Tables.CombiTable2D flux_dni1[N](
+		each fileName = file_dni1, 
+		each tableOnFile = true, 
+		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+		tableName = tableNames);
+	//DNI ratio 0.87
+	Modelica.Blocks.Tables.CombiTable2D flux_dni2[N](
+		each fileName = file_dni2, 
+		each tableOnFile = true, 
+		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+		tableName = tableNames);
+	//DNI ratio 1.0
+	Modelica.Blocks.Tables.CombiTable2D flux_dni3[N](
+		each fileName = file_dni3, 
+		each tableOnFile = true, 
+		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+		tableName = tableNames);
+	//DNI ratio 1.20
+	Modelica.Blocks.Tables.CombiTable2D flux_dni4[N](
+		each fileName = file_dni4, 
+		each tableOnFile = true, 
+		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+		tableName = tableNames);
+	//DNI ratio 1.39
+	Modelica.Blocks.Tables.CombiTable2D flux_dni5[N](
+		each fileName = file_dni5, 
+		each tableOnFile = true, 
+		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
+		tableName = tableNames);
 
 	SolarTherm.Models.Sources.SolarModel.Sun sun(lat = lat, lon = lon, t_zone = t_zone, year = year);
-	SolarTherm.Models.Sources.Weather.WeatherSource wea(file=wea_file);
-	Modelica.Blocks.Sources.RealExpression dni_input(y = wea.wbus.dni);
+	Modelica.Blocks.Sources.RealExpression dni_input(y = data.DNI);
+	Real eps = Modelica.Constants.small;
 
-protected
 	// Variables
 	SI.HeatFlux dni_horizon[horizon] "DNI for the next horizon";
 	SI.Efficiency eta_op_horizon[horizon] "Optical efficiency for the next horizon";
 	SI.Angle dec_horizon[horizon] "Forecast declination angle";
 	SI.Angle hra_horizon[horizon] "Forecast hour angle";
+	SI.HeatFlowRate q_horizon[horizon];
 	SI.Time time_simul "Current simulation second";
 	Real counter(start = const_t);
-public
+
 	SI.HeatFlowRate Q_raw "Raw field output";
 	SI.Time t_forecast "Startup time forecast";
-	SI.Efficiency eta_opt "Field optical efficiency";
 	SI.Angle ele "Elevation angle";
 
 	FI.SpotPriceTable pri(file=pri_file);
@@ -166,7 +232,12 @@ public
 	Integer blk_state(min=1, max=4) "Power block state";
 	Integer sch_state(min=1, max=n_sched_states) "Schedule state";
 
-protected
+	SI.Angle elo;
+	Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(elo));
+	Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(sun.hra));
+	SI.HeatFlux CG[N];
+	SI.MassFlowRate m_flow_tb;
+
 	SI.Time  t_con_w_now "Time of concentrator current warm-up event";
 	SI.Time  t_con_w_next "Time of concentrator next warm-up event";
 	SI.Time  t_con_c_now "Time of concentrator current cool-down event";
@@ -176,6 +247,19 @@ protected
 	SI.Time  t_blk_c_now "Time of power block current cool-down event";
 	SI.Time  t_blk_c_next "Time of power block next cool-down event";
 	SI.Time  t_sch_next "Time of next schedule change";
+
+function Phis "Compute coordinates along a line"
+	input Real x     "Independent variable";
+	output Real y    "Value of y at the specified x";
+protected
+	Real eps = Modelica.Constants.small;
+algorithm
+	if x<1 then
+		y := exp(-1./(x+eps))/(exp(-1./(x+eps)) + exp(-1./(1-(x+eps))));
+	else
+		y := 1;
+	end if;
+end Phis;
 
 initial equation
 	E = E_low_l;
@@ -274,12 +358,10 @@ algorithm
 		t_blk_c_next := time + t_blk_off_delay;
 	end when;
 
-	for i in 1:n_sched_states loop
-		when sch_state == i then
-			Q_flow_sched := Q_flow_sched_val[i];
-			t_sch_next := time + t_delta[i];
-		end when;
-	end for;
+	when sch_state == 1 then
+		Q_flow_sched := Q_flow_sched_val[1];
+		t_sch_next := time + t_delta[1];
+	end when;
 
 	when E > E_up_u then
 		full := true;
@@ -288,9 +370,9 @@ algorithm
 	end when;
 
 	if con_state == 2 then
-		fr_ramp_con := if ramp_order == 0 then 0.0 else abs(((time - t_con_w_now) / t_con_on_delay));
+		fr_ramp_con := Phis(((time - t_con_w_now) / t_con_on_delay));
 	elseif con_state == 5 then
-		fr_ramp_con := if ramp_order == 0 then 0.0 else abs(((time - t_con_c_now) / t_con_off_delay));
+		fr_ramp_con := 1 - Phis(((time - t_con_c_now) / t_con_off_delay));
 	else
 		fr_ramp_con := 0;
 	end if;
@@ -306,19 +388,42 @@ algorithm
 equation
 	der(counter) = 1;
 	connect(sun.dni, dni_input.y);
+	elo=SolarTherm.Models.Sources.SolarFunctions.eclipticLongitude(sun.dec);
+	// Flux interpolation
+	for i in 1:N loop
+		connect(u1.y, flux_dni1[i].u1);
+		connect(u2.y, flux_dni1[i].u2);
+		connect(u1.y, flux_dni2[i].u1);
+		connect(u2.y, flux_dni2[i].u2);
+		connect(u1.y, flux_dni3[i].u1);
+		connect(u2.y, flux_dni3[i].u2);
+		connect(u1.y, flux_dni4[i].u1);
+		connect(u2.y, flux_dni4[i].u2);
+		connect(u1.y, flux_dni5[i].u1);
+		connect(u2.y, flux_dni5[i].u2);
+	end for;
+	
+	// Mass flow rate interpolation
+	for i in 1:5 loop
+		connect(u1.y, m_flow[i].u1);
+		connect(u2.y, m_flow[i].u2);
+	end for;
 	
 	when counter> 0 then
 		time_simul = floor(time);
 		for i in 1:horizon loop
 			(dec_horizon[i],hra_horizon[i]) = PSA_Algorithm(if time_simul + i * dt < 31536000 then time_simul + i * dt else time_simul + i * dt - 31536000, lon, lat, t_zone, year);
-			dni_horizon[i] = horizon_function(if time_simul + i * dt < 31536000 then time_simul + i * dt else time_simul + i * dt - 31536000, 3, wea_table);
-			eta_op_horizon[i] = opt_eff_horizon(to_deg(dec_horizon[i]), to_deg(hra_horizon[i]), opt_table);
+			dni_horizon[i] = horizon_function(if time_simul + i * dt < 31536000 then time_simul + i * dt else time_simul + i * dt - 31536000, 2, wea_table);
+			eta_opt[i].dec = dec_horizon[i];
+			eta_opt[i].hra = hra_horizon[i];
+			eta_opt[i].dni = dni_horizon[i];
+			eta_op_horizon[i] = eta_opt[i].nu;
+			q_horizon[i] = dni_horizon[i]*eta_op_horizon[i]*A_field;
 		end for;
 		reinit(counter,const_t);
 	end when;
 	ele = SolarTherm.Models.Sources.SolarFunctions.elevationAngle(sun.dec,sun.hra,lat);
-	eta_opt = opt_eff_horizon(to_deg(sun.dec), to_deg(sun.hra), opt_table);
-	Q_raw = wea.wbus.dni*eta_opt*A_field;
+	Q_raw = data.DNI*oelts.nu*A_field;
 	t_forecast = if ele > ele_min then ReceiverStartupTime(horizon,dni_horizon,eta_op_horizon,A_field,dt,Q_start) else 0;
 
 	ramp_up_blk.x = t_blk_w_now;
@@ -331,23 +436,39 @@ equation
 	if con_state <= 1 then
 		Q_flow_rec = 0;
 		fr_dfc = 0;
+		for i in 1:N loop
+			CG[i] = 0;
+		end for;	
+		m_flow_tb = 0;
 	elseif con_state == 2 then
-		Q_flow_rec = fr_ramp_con * max(eta_opt*wea.wbus.dni*A_field, 0);
+		Q_flow_rec = fr_ramp_con * oelts.nu*data.DNI*A_field;
 		fr_dfc = if ramp_order == 0 then 0 else 1;
+		for i in 1:N loop
+			CG[i] = fr_ramp_con * max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
+		end for;
+		m_flow_tb = fr_ramp_con * max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
 	elseif con_state == 5 then
-		Q_flow_rec = fr_ramp_con * max(eta_opt*wea.wbus.dni*A_field, 0);
+		Q_flow_rec = fr_ramp_con * oelts.nu*data.DNI*A_field;
 		fr_dfc = if ramp_order == 0 then 0 else 1;
+		for i in 1:N loop
+			CG[i] = fr_ramp_con * max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
+		end for;
+		m_flow_tb = fr_ramp_con * max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
 	else
+		for i in 1:N loop
+			CG[i] = max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
+		end for;
+		m_flow_tb = max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
 		if full then
-			if eff_rec*(eta_opt*wea.wbus.dni*A_field) > Q_flow_dis then
-				Q_flow_rec = min(Q_flow_dis/eff_rec, max(eta_opt*wea.wbus.dni*A_field, 0));
-				fr_dfc = Q_flow_dis / (max(eta_opt*wea.wbus.dni*A_field, 0) + 1e-10);
+			if eff_rec*oelts.nu*data.DNI*A_field > Q_flow_dis then
+				Q_flow_rec = min(Q_flow_dis/eff_rec, oelts.nu*data.DNI*A_field);
+				fr_dfc = Q_flow_dis / (oelts.nu*data.DNI*A_field + eps);
 			else
-				Q_flow_rec = max(eta_opt*wea.wbus.dni*A_field, 0);
+				Q_flow_rec = oelts.nu*data.DNI*A_field;
 				fr_dfc = 1;
 			end if;
 		else
-			Q_flow_rec = max(eta_opt*wea.wbus.dni*A_field, 0);
+			Q_flow_rec = oelts.nu*data.DNI*A_field;
 			fr_dfc = 1;
 		end if;
 	end if;
@@ -368,5 +489,5 @@ equation
 
 	der(E_elec) = P_elec;
 	der(R_spot) = P_elec*pri.price;
-	annotation(experiment(StartTime=0.0, StopTime=31536000.0, Interval=60, Tolerance=1e-06));
+	annotation(experiment(StartTime=0.0, StopTime=864000/*31536000.0*/, Interval=300, Tolerance=1e-06));
 end SimpleSystemOperation;

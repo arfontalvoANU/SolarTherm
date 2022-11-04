@@ -108,10 +108,7 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 		// e.g. for euclidean distance: if T > T0 then constrained=true & distance=sqrt((T-T0)^2)
 		// e.g. for quadratic distance: if T > T0 then constrained=true & distance=(T-T0)^2
 		// e.g. for a constraint like T1 < T < T2, then T0 = (T1 + T2)/2
-
-	SI.HeatFlowRate Q_flow_rec "Heat flow into receiver";
-	FI.Money R_spot(start=0, fixed=true) "Spot market revenue";
-	SI.Energy E_elec(start=0, fixed=true) "Generate electricity";
+	parameter Real eps = Modelica.Constants.small;
 
 	// Flux interpolation parameters
 	parameter Integer N = 450 "Number of tube segments in flowpath";
@@ -156,6 +153,7 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 		each lat=lat,
 		each ele=ele);
 
+protected
 	Modelica.Blocks.Tables.CombiTable2D m_flow[5](
 		each fileName = file_mflow, 
 		each tableOnFile = true, 
@@ -193,11 +191,15 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
 		tableName = tableNames);
 
+public
+	Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(elo));
+	Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(sun.hra));
+
 	SolarTherm.Models.Sources.SolarModel.Sun sun(lat = lat, lon = lon, t_zone = t_zone, year = year);
 	Modelica.Blocks.Sources.RealExpression dni_input(y = data.DNI);
-	Real eps = Modelica.Constants.small;
 
 	// Variables
+protected
 	SI.HeatFlux dni_horizon[horizon] "DNI for the next horizon";
 	SI.Efficiency eta_op_horizon[horizon] "Optical efficiency for the next horizon";
 	SI.Angle dec_horizon[horizon] "Forecast declination angle";
@@ -206,6 +208,7 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	SI.Time time_simul "Current simulation second";
 	Real counter(start = const_t);
 
+public
 	SI.HeatFlowRate Q_raw "Raw field output";
 	SI.Time t_forecast "Startup time forecast";
 	SI.Angle ele "Elevation angle";
@@ -232,12 +235,16 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	Integer blk_state(min=1, max=4) "Power block state";
 	Integer sch_state(min=1, max=n_sched_states) "Schedule state";
 
-	SI.Angle elo;
-	Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(elo));
-	Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(sun.hra));
-	SI.HeatFlux CG[N];
-	SI.MassFlowRate m_flow_tb;
+	SI.HeatFlowRate Q_flow_rec "Heat flow into receiver";
+	FI.Money R_spot(start=0, fixed=true) "Spot market revenue";
+	SI.Energy E_elec(start=0, fixed=true) "Generate electricity";
 
+	SI.Angle elo "Ecliptic longitude";
+	SI.HeatFlux CG[N] "Interpolated incident flux";
+	SI.MassFlowRate m_flow_tb "Interpolated mass flow rate";
+	SI.CoefficientOfHeatTransfer h_conv "Heat transfer coefficient";
+
+protected
 	SI.Time  t_con_w_now "Time of concentrator current warm-up event";
 	SI.Time  t_con_w_next "Time of concentrator next warm-up event";
 	SI.Time  t_con_c_now "Time of concentrator current cool-down event";
@@ -424,6 +431,7 @@ equation
 	end when;
 	ele = SolarTherm.Models.Sources.SolarFunctions.elevationAngle(sun.dec,sun.hra,lat);
 	Q_raw = data.DNI*oelts.nu*A_field;
+	h_conv = CH[5] + CH[4]*data.Wspd + CH[3]*data.Wspd^2 + CH[2]*data.Wspd^3 + CH[1]*data.Wspd^4;
 	t_forecast = if ele > ele_min then ReceiverStartupTime(horizon,dni_horizon,eta_op_horizon,A_field,dt,Q_start) else 0;
 
 	ramp_up_blk.x = t_blk_w_now;
@@ -446,14 +454,14 @@ equation
 		for i in 1:N loop
 			CG[i] = fr_ramp_con * max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
 		end for;
-		m_flow_tb = fr_ramp_con * max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
+		m_flow_tb = max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
 	elseif con_state == 5 then
 		Q_flow_rec = fr_ramp_con * oelts.nu*data.DNI*A_field;
 		fr_dfc = if ramp_order == 0 then 0 else 1;
 		for i in 1:N loop
 			CG[i] = fr_ramp_con * max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
 		end for;
-		m_flow_tb = fr_ramp_con * max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
+		m_flow_tb = max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
 	else
 		for i in 1:N loop
 			CG[i] = max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));

@@ -1,0 +1,15 @@
+import platform, os
+
+vars = Variables()
+vars.Add('INSTALL_PREFIX', "Location where files will be installed", os.path.expanduser("~/.local/lib"))
+
+env = Environment(variables=vars)
+env['SHLIBPREFIX'] = ''
+lib = env.SharedLibrary(target='stress',source=['stress.c']
+	,LIBS=['gsl','gslcblas','m']
+	,CPPPATH=['.']
+	,LINKFLAGS=['-fPIC']
+)
+
+env.Install("$INSTALL_PREFIX",lib)
+env.Alias('install',"$INSTALL_PREFIX")

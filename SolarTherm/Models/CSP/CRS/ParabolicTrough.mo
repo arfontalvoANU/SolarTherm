@@ -46,8 +46,8 @@ model ParabolicTrough
 	parameter Real A5 = -1.7;
 	parameter Real A6 = 0.0125;
 	/******************** HTF parameters ********************/
-	parameter Modelica.SIunits.Temperature T_fluid = Modelica.SIunits.Conversions.from_degC(345);
-
+	parameter Modelica.SIunits.Temperature T_fluid = Modelica.SIunits.Conversions.from_degC(345) "This value is updated from the main file with the average of inlet and outlet air temperatures";
+	parameter Modelica.SIunits.Pressure P_fluid = 1e5 "This value is updated from the main file with the air pressure";
 	/******************** Design parameters *************/
 	parameter SI.Irradiance dni_des = 950 "DNI at design";
 	parameter SI.Velocity Wspd_des = 3 "Wind speed at design";

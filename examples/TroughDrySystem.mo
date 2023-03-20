@@ -48,8 +48,13 @@ model TroughDrySystem
 	parameter SI.HeatFlowRate Q_thermal_des = collectors.HL_des/collectors.A_P*A_field "Field thermal losses at design";
 
 	// Beneficiation process
-	parameter Real eff_conv(unit="kg/s/W") = 3.56e-6 "Beneficiation process conversion";
-	parameter Modelica.SIunits.HeatFlowRate Q_bp_des = 50e6 "Heat input to the beneficiation process at design";
+	parameter Modelica.SIunits.HeatFlowRate Q_bp_des = m_des_air*Cp_des_air_out*T_des_air_out "Heat input to the beneficiation process at design";
+	parameter SI.Power P_name = Q_bp_des "Nameplate rating of (fake) power block";
+	parameter Modelica.SIunits.Temperature T_des_air_in = Modelica.SIunits.Conversions.from_degC(30) "Temperature of the air at the inlet of the solar collection system"; 
+	parameter Modelica.SIunits.Temperature T_des_air_out = Modelica.SIunits.Conversions.from_degC(400) "Temperature of the air at the outlet of the collection system (inlet of rotative dryer)"; 
+	parameter Modelica.SIunits.MassFlowRate m_des_air=20 "The system will be designed to provided the this mass flow rate of air heated at specific temperature";
+	parameter Modelica.SIunits.SpecificHeatCapacityAtConstantPressure Cp_des_air_out=1e3*(1.3864e-13*((T_des_air_out)^4)-6.4747e-10*((T_des_air_out)^3)+1.0234e-6*((T_des_air_out)^2)-4.3282e-4*((T_des_air_out)^1)+1.0613); 
+	parameter Modelica.SIunits.Pressure P_air=2e5 "Pressure of the air on the collection system";
 
 	// Storage
 	parameter Real t_storage(unit="h") = 22.7 "Hours of storage";
@@ -77,8 +82,8 @@ model TroughDrySystem
 
 	parameter Real r_disc = 0.05 "Discount rate";
 
-	parameter Integer t_life(unit="year") = 20 "Lifetime of plant";
-	parameter Integer t_cons(unit="year") = 0 "Years of construction";
+	parameter Integer t_life = 20 "Lifetime of plant";
+	parameter Integer t_cons = 0 "Years of construction";
 
 	parameter FI.AreaPrice pri_field = 150 "Field cost per area ($/m2)";
 	parameter FI.AreaPrice pri_site = 25 "Site improvements cost per area ($/m2)";
@@ -102,31 +107,16 @@ model TroughDrySystem
 
 	parameter Real n = 0.65 "Cost scaling factor";
 
-	parameter FI.Money C_hx_ref = 58946070 "Heat exchanger reference cost";
-	parameter FI.Money C_fbd_ref = 24255986 "FBD reference cost";
-	parameter FI.Money C_bcs_ref = 13491551 "Blower, cyclone and separator reference cost";
-
 	parameter FI.Money C_field = pri_field*A_field "Field cost";
 	parameter FI.Money C_site = pri_site*A_field "Site improvements cost";
 	parameter FI.Money C_storage = pri_storage*E_max/1e3/3600 "Storage cost";
 
-	parameter FI.Money C_hx = C_hx_ref*(Q_hx_des/Q_hx_des_ref)^n "Heat exchanger cost";
-	parameter FI.Money C_fbd = C_fbd_ref*(Q_hx_des/Q_hx_des_ref)^n;
-	parameter FI.Money C_bcs = C_bcs_ref*(Q_hx_des/Q_hx_des_ref)^n;
 	parameter Real f_field = 1;
-	parameter Real f_hx = 1;
-	parameter Real f_fbd = 1;
-	parameter Real f_bcs = 1;
 	parameter Real f_stor = 1;
 
-	parameter FI.Money C_cap_dir = f_field*C_field + f_field*C_site + f_hx*C_hx + f_fbd*C_fbd + f_bcs*C_bcs + f_stor*C_storage "Purchase equipment cost";
-
-	parameter Real di_factor = 2.051784 "Added direct and indirect cost factor";
-	
-	parameter FI.Money C_cap = C_cap_dir*di_factor "Total capital investment";
-
-	parameter FI.Money C_tax = 0.02*C_cap;
-	parameter FI.Money C_om = 0.02*C_cap;
+	parameter FI.MoneyPerYear C_year = 10*A_col "Cost per year";
+	parameter FI.Money C_cap = f_field*C_field + f_field*C_site + f_stor*C_storage "Total capital investment";
+	parameter Real C_prod(unit="$/J/year") = 0 "Cost per production per year";
 
 	parameter Boolean constrained = false "Constraint is present in optimisation if true";
 	parameter Real distance = 0 "Distance to be added to a constant offset as added penalty when a constraint is not respected";
@@ -138,7 +128,6 @@ model TroughDrySystem
 	SI.HeatFlowRate Q_flow_rec "Heat flow into receiver";
 	SI.HeatFlowRate Q_flow_chg "Heat flow into tank";
 	SI.HeatFlowRate Q_flow_dis "Heat flow out of tank";
-	SI.MassFlowRate m_flow_iron "Output power of power block";
 
 	Real fr_dfc(min=0, max=1) "Target energy fraction of the heliostat fistateld at the defocused state";
 	Boolean full "True if the storage tank is full";
@@ -171,13 +160,8 @@ model TroughDrySystem
 	SI.Time  t_blk_c_next "Time of power block next cool-down event";
 	SI.Time  t_sch_next "Time of next schedule change";
 
-	FI.Money R_spot(start=0, fixed=true)
-		"Spot market revenue";
-
-	Real C_prod "Variable O&M cost per production per year";
-	Real C_fixed "Fixed O&M cost per production per year";
-
-	SI.Mass m(start=0, fixed=true) "Production";
+	FI.Money R_spot(start=0, fixed=true) "Spot market revenue";
+	SI.Energy E_elec(start=0, fixed=true) "Generate electricity";
 
 	Modelica.Blocks.Sources.RealExpression dni(y = wea.wbus.dni) 
 		annotation(Placement(
@@ -207,7 +191,9 @@ model TroughDrySystem
 		tau_g = eta_tr,
 		n_col = n_col,
 		A_col = A_col,
-		L_col = L_col)
+		L_col = L_col,
+		T_fluid=0.5*(T_des_air_in+T_des_air_out),
+		P_fluid=P_air)
 		annotation(Placement(
 		transformation(origin = {-31,30}, extent={{-20,-20},{20,20}})));
 
@@ -388,24 +374,15 @@ equation
 
 	if blk_state <=1 then
 		Q_flow_dis = 0;
-		m_flow_iron = 0;
 	elseif blk_state == 2 then
 		Q_flow_dis = if ramp_order == 0 then Q_flow_sched else fr_ramp_blk * Q_flow_sched;
-		m_flow_iron = eff_conv*Q_flow_dis;
 	elseif blk_state == 4 then
 		Q_flow_dis = fr_ramp_blk * Q_flow_sched;
-		m_flow_iron = eff_conv*Q_flow_dis;
 	else
 		Q_flow_dis = Q_flow_sched;
-		m_flow_iron = eff_conv*Q_flow_dis;
 	end if;
 
-	der(m) = m_flow_iron;
-	
-	C_fixed = ceil(m/1000/365/100)*2*139000*0.7285 + C_tax + C_om;
-	
-	C_prod = m/(8760*eff_conv*Q_bp_des)*8760*pri_om_flow_iron;
-	
-	der(R_spot) = m_flow_iron*pri.price;
+	der(R_spot) = pri.price;
+	der(E_elec) = Q_flow_dis;
 	annotation(experiment(StartTime=0.0, StopTime=31536000.0, Interval=1800, Tolerance=1e-06));
 end TroughDrySystem;

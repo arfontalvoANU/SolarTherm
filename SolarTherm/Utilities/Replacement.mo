@@ -12,6 +12,8 @@ protected
 	Real pvalue;
 algorithm
 	result:=0;
+	sum:=0;
+	pvalue:=0;
 	for i in 1:N loop
 		for j in 1:tplant loop
 			if j==1 then

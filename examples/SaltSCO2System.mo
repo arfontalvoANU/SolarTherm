@@ -528,7 +528,7 @@ initial equation
 			Text(origin = {2, 32}, extent = {{30, 62}, {78, 42}}, textString = "Power Block Control", fontSize = 6, fontName = "CMU Serif"),
 			Text(origin = {8, -26}, extent = {{-146, -26}, {-98, -46}}, textString = "Data Source", fontSize = 7, fontName = "CMU Serif")}),
 	Icon(coordinateSystem(extent = {{-140, -120}, {160, 140}})),
-	experiment(StopTime = 3.1536e+07, StartTime = 0, Tolerance = 0.0001, Interval = 1800),
+	experiment(StopTime = 3.1536e+07, StartTime = 0, Tolerance = 0.0001, Interval = 300),
 	__Dymola_experimentSetupOutput,
 	Documentation(revisions = "<html>
 	<ul>

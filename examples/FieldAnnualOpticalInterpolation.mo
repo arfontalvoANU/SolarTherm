@@ -22,17 +22,16 @@ model FieldAnnualOpticalInterpolation "Field annual interpolation"
 	parameter Integer year = 2006 "Meteorological year";
 
 	parameter SolarTherm.Types.Solar_angles angles = SolarTherm.Types.Solar_angles.elo_hra "Angles used in the lookup table file";
-//	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice.motab");
-	parameter String opt_file = "/home/arfontalvo/ownCloud/Thesis/figures/chapter4/OELTs_safety_factors/case4/OELTs_Solstice.motab";
-	parameter String fileW1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W1.motab");
-	parameter String fileW2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W2.motab");
-	parameter String fileW3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W3.motab");
-	parameter String fileW4 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W4.motab");
-	parameter String fileW5 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W5.motab");
-	parameter String fileW6 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W6.motab");
-	parameter String fileW7 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W7.motab");
-	parameter String fileW8 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W8.motab");
-	parameter String fileW9 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W9.motab");
+	parameter String opt_file = "/mnt/fb7cc2c9-e328-4f3f-a6f8-918195722408/mdba_aiming/tests/OELTS_Thesis/seasonal/seasonal0.1dw/OELTs_Solstice.motab";
+	parameter String fileW1 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W1.motab";
+	parameter String fileW2 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W2.motab";
+	parameter String fileW3 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W3.motab";
+	parameter String fileW4 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W4.motab";
+	parameter String fileW5 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W5.motab";
+	parameter String fileW6 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W6.motab";
+	parameter String fileW7 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W7.motab";
+	parameter String fileW8 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W8.motab";
+	parameter String fileW9 = "/home/arfontalvo/solartherm/SolarTherm/Data/Optics/OELTs_Solstice_W9.motab";
 	parameter Real metadata_list[23] = metadata(opt_file);
 	parameter Integer n_heliostat = integer(metadata_list[1]) "Number of heliostats";
 	parameter SI.Area A_heliostat = metadata_list[2] "Heliostat module reflective area";
@@ -276,6 +275,16 @@ model FieldAnnualOpticalInterpolation "Field annual interpolation"
 	SI.Temperature T_ext_4_linear "Fourth degree space average temperature for radiative loss";
 	SI.CoefficientOfHeatTransfer h_conv "Heat transfer coefficient";
 
+	SI.Energy E1;
+	SI.Energy E2;
+	SI.Energy E3;
+	SI.Energy E4;
+	SI.Energy E5;
+	SI.Energy E6;
+	SI.Energy E7;
+	SI.Energy E8;
+	SI.Energy E9;
+
 protected
 	SI.Time  t_con_w_now "Time of concentrator current warm-up event";
 	SI.Time  t_con_w_next "Time of concentrator next warm-up event";
@@ -492,6 +501,15 @@ equation
 		P_elec = eff_blk*Q_flow_dis;
 	end if;
 
+	der(E1)=W1.loss;
+	der(E2)=W2.loss;
+	der(E3)=W3.loss;
+	der(E4)=W4.loss;
+	der(E5)=W5.loss;
+	der(E6)=W6.loss;
+	der(E7)=W7.loss;
+	der(E8)=W8.loss;
+	der(E9)=W9.loss;
 	der(E_elec) = P_elec;
 	der(R_spot) = P_elec*pri.price;
 	annotation(experiment(StartTime=0.0, StopTime=31536000.0, Interval=300, Tolerance=1e-06));

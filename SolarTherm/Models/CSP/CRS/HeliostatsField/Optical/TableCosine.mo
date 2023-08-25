@@ -48,7 +48,8 @@ equation
   end if;
   nu = 1;
 
-  loss = min(1,max(0, FluxInterpolation(nu_table[1].y, nu_table[2].y, nu_table[3].y, nu_table[4].y, nu_table[5].y, ele, dni, ele_min)));
+//  loss = min(1,max(0, FluxInterpolation(nu_table[1].y, nu_table[2].y, nu_table[3].y, nu_table[4].y, nu_table[5].y, ele, dni, ele_min)));
+  loss = max(0, FluxInterpolation(nu_table[1].y, nu_table[2].y, nu_table[3].y, nu_table[4].y, nu_table[5].y, ele, dni, ele_min));
 //  loss = max(0, nu_table[3].y);
 
   for i in 1:5 loop

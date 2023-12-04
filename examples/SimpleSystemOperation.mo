@@ -123,6 +123,15 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 	parameter String file_mflow = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Data/salt_N06230_OD22.40_WT1.20_565/MFLOW_Solstice_fp1.motab");
 
 	// Models
+	SolarTherm.Models.Sources.DataTable.DataTable data(
+		lon = lon,
+		lat = lat,
+		t_zone = t_zone,
+		year = year,
+		file = wea_file) annotation(
+			Placement(visible = true, transformation(extent = {{-132, -56}, {-102, -28}}, rotation = 0)));
+
+protected
 	SolarTherm.Models.CSP.CRS.HeliostatsField.Optical.TableMDBA oelts(
 		angles = angles,
 		file = opt_file,
@@ -131,14 +140,6 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 		lat=lat,
 		dni=sun.dni,
 		ele=ele);
-
-	SolarTherm.Models.Sources.DataTable.DataTable data(
-		lon = lon,
-		lat = lat,
-		t_zone = t_zone,
-		year = year,
-		file = wea_file) annotation(
-			Placement(visible = true, transformation(extent = {{-132, -56}, {-102, -28}}, rotation = 0)));
 
 	Modelica.Blocks.Types.ExternalCombiTable1D wea_table = Modelica.Blocks.Types.ExternalCombiTable1D(
 		tableName = "data",
@@ -153,7 +154,6 @@ model SimpleSystemOperation "High temperature Sodium-sCO2 system"
 		each lat=lat,
 		each ele=ele);
 
-protected
 	Modelica.Blocks.Tables.CombiTable2D m_flow[5](
 		each fileName = file_mflow, 
 		each tableOnFile = true, 
@@ -191,11 +191,12 @@ protected
 		each smoothness = Modelica.Blocks.Types.Smoothness.ContinuousDerivative,
 		tableName = tableNames);
 
-public
 	Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(elo));
 	Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(sun.hra));
 
 	SolarTherm.Models.Sources.SolarModel.Sun sun(lat = lat, lon = lon, t_zone = t_zone, year = year);
+
+public
 	Modelica.Blocks.Sources.RealExpression dni_input(y = data.DNI);
 
 	// Variables
@@ -208,16 +209,12 @@ protected
 	SI.Time time_simul "Current simulation second";
 	Real counter(start = const_t);
 
-public
 	SI.HeatFlowRate Q_raw "Raw field output";
 	SI.Time t_forecast "Startup time forecast";
 	SI.Angle ele "Elevation angle";
 
-	FI.SpotPriceTable pri(file=pri_file);
-
 	SI.HeatFlowRate Q_flow_chg "Heat flow into tank";
 	SI.HeatFlowRate Q_flow_dis "Heat flow out of tank";
-	SI.Power P_elec "Output power of power block";
 
 	Real fr_dfc(min=0, max=1) "Target energy fraction of the heliostat fistateld at the defocused state";
 	Boolean full "True if the storage tank is full";
@@ -227,24 +224,16 @@ public
 	SolarTherm.Utilities.Transition.Ramp ramp_down_blk(ramp_order=ramp_order, t_dur= t_blk_off_delay, up=false);
 	Real fr_ramp_blk (min=0.0, max=1.0) "ramping transition rate for the power block";
 
-	SI.Energy E(min=0, max=E_max) "Stored energy";
-
 	SI.HeatFlowRate Q_flow_sched "Discharge schedule";
 
-	Integer con_state(min=1, max=5) "Concentrator state";
 	Integer blk_state(min=1, max=4) "Power block state";
 	Integer sch_state(min=1, max=n_sched_states) "Schedule state";
 
 	SI.HeatFlowRate Q_flow_rec "Heat flow into receiver";
-	FI.Money R_spot(start=0, fixed=true) "Spot market revenue";
-	SI.Energy E_elec(start=0, fixed=true) "Generate electricity";
 
+	FI.SpotPriceTable pri(file=pri_file);
 	SI.Angle elo "Ecliptic longitude";
-	SI.HeatFlux CG[N] "Interpolated incident flux";
-	SI.MassFlowRate m_flow_tb "Interpolated mass flow rate";
-	SI.CoefficientOfHeatTransfer h_conv "Heat transfer coefficient";
 
-protected
 	SI.Time  t_con_w_now "Time of concentrator current warm-up event";
 	SI.Time  t_con_w_next "Time of concentrator next warm-up event";
 	SI.Time  t_con_c_now "Time of concentrator current cool-down event";
@@ -254,6 +243,19 @@ protected
 	SI.Time  t_blk_c_now "Time of power block current cool-down event";
 	SI.Time  t_blk_c_next "Time of power block next cool-down event";
 	SI.Time  t_sch_next "Time of next schedule change";
+
+public
+	Integer con_state(min=1, max=5) "Concentrator state";
+
+	SI.Power P_elec "Output power of power block";
+	SI.Energy E(min=0, max=E_max) "Stored energy";
+
+	FI.Money R_spot(start=0, fixed=true) "Spot market revenue";
+	SI.Energy E_elec(start=0, fixed=true) "Generate electricity";
+
+	SI.HeatFlux CG[N] "Interpolated incident flux";
+	SI.MassFlowRate m_flow_tb "Interpolated mass flow rate";
+	SI.CoefficientOfHeatTransfer h_conv "Heat transfer coefficient";
 
 function Phis "Compute coordinates along a line"
 	input Real x     "Independent variable";

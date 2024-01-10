@@ -18,7 +18,7 @@ class TestFlowPathStress(unittest.TestCase):
 		sim.compile_model(args=['-d=nonewInst'])
 		sim.compile_sim(args=['-s'])
 		sim.load_init()
-		sim.simulate(start=0, stop='1y', step='1m', solver='dassl', nls='homotopy', args=['-noEventEmit'])
+		sim.simulate(start=0, stop='1y', step='5m', solver='dassl', nls='homotopy', args=['-noEventEmit'])
 		self.res = postproc.SimResultElec(sim.res_fn)
 		self.perf = self.res.calc_perf()
 

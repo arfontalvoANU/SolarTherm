@@ -194,10 +194,11 @@ protected
 	Modelica.Blocks.Sources.RealExpression u1(y = Modelica.SIunits.Conversions.to_deg(elo));
 	Modelica.Blocks.Sources.RealExpression u2(y = Modelica.SIunits.Conversions.to_deg(sun.hra));
 
-	SolarTherm.Models.Sources.SolarModel.Sun sun(lat = lat, lon = lon, t_zone = t_zone, year = year);
 
 public
 	Modelica.Blocks.Sources.RealExpression dni_input(y = data.DNI);
+
+	SolarTherm.Models.Sources.SolarModel.Sun sun(lat = lat, lon = lon, t_zone = t_zone, year = year);
 
 	// Variables
 protected
@@ -211,7 +212,6 @@ protected
 
 	SI.HeatFlowRate Q_raw "Raw field output";
 	SI.Time t_forecast "Startup time forecast";
-	SI.Angle ele "Elevation angle";
 
 	SI.HeatFlowRate Q_flow_chg "Heat flow into tank";
 	SI.HeatFlowRate Q_flow_dis "Heat flow out of tank";
@@ -245,6 +245,12 @@ protected
 	SI.Time  t_sch_next "Time of next schedule change";
 
 public
+	SI.HeatFlowRate Q_flow_chg_raw;
+	SI.Energy E_receiver;
+
+	SI.Angle ele "Elevation angle";
+	SI.Angle azi "Azimuth angle";
+
 	Integer con_state(min=1, max=5) "Concentrator state";
 
 	SI.Power P_elec "Output power of power block";
@@ -432,6 +438,7 @@ equation
 		reinit(counter,const_t);
 	end when;
 	ele = SolarTherm.Models.Sources.SolarFunctions.elevationAngle(sun.dec,sun.hra,lat);
+	azi = SolarTherm.Models.Sources.SolarFunctions.solarAzimuth(sun.dec,sun.hra,lat);
 	Q_raw = data.DNI*oelts.nu*A_field;
 	h_conv = CH[5] + CH[4]*data.Wspd + CH[3]*data.Wspd^2 + CH[2]*data.Wspd^3 + CH[1]*data.Wspd^4;
 	t_forecast = if ele > ele_min then ReceiverStartupTime(horizon,dni_horizon,eta_op_horizon,A_field,dt,Q_start) else 0;
@@ -445,6 +452,7 @@ equation
 
 	if con_state <= 1 then
 		Q_flow_rec = 0;
+		Q_flow_chg_raw = 0;
 		fr_dfc = 0;
 		for i in 1:N loop
 			CG[i] = 0;
@@ -452,6 +460,7 @@ equation
 		m_flow_tb = 0;
 	elseif con_state == 2 then
 		Q_flow_rec = fr_ramp_con * oelts.nu*data.DNI*A_field;
+		Q_flow_chg_raw = Q_flow_rec*eff_rec;
 		fr_dfc = if ramp_order == 0 then 0 else 1;
 		for i in 1:N loop
 			CG[i] = fr_ramp_con * max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
@@ -459,6 +468,7 @@ equation
 		m_flow_tb = max(0, FluxInterpolation(m_flow[1].y, m_flow[2].y, m_flow[3].y, m_flow[4].y, m_flow[5].y, ele, sun.dni, ele_min));
 	elseif con_state == 5 then
 		Q_flow_rec = fr_ramp_con * oelts.nu*data.DNI*A_field;
+		Q_flow_chg_raw = Q_flow_rec*eff_rec;
 		fr_dfc = if ramp_order == 0 then 0 else 1;
 		for i in 1:N loop
 			CG[i] = fr_ramp_con * max(0, FluxInterpolation(flux_dni1[i].y, flux_dni2[i].y, flux_dni3[i].y, flux_dni4[i].y, flux_dni5[i].y, ele, sun.dni, ele_min));
@@ -472,13 +482,16 @@ equation
 		if full then
 			if eff_rec*oelts.nu*data.DNI*A_field > Q_flow_dis then
 				Q_flow_rec = min(Q_flow_dis/eff_rec, oelts.nu*data.DNI*A_field);
+				Q_flow_chg_raw = oelts.nu*data.DNI*A_field*eff_rec;
 				fr_dfc = Q_flow_dis / (oelts.nu*data.DNI*A_field + eps);
 			else
 				Q_flow_rec = oelts.nu*data.DNI*A_field;
+				Q_flow_chg_raw = Q_flow_rec*eff_rec;
 				fr_dfc = 1;
 			end if;
 		else
 			Q_flow_rec = oelts.nu*data.DNI*A_field;
+			Q_flow_chg_raw = Q_flow_rec*eff_rec;
 			fr_dfc = 1;
 		end if;
 	end if;
@@ -497,7 +510,8 @@ equation
 		P_elec = eff_blk*Q_flow_dis;
 	end if;
 
+	der(E_receiver) = Q_flow_chg_raw*eff_blk;
 	der(E_elec) = P_elec;
 	der(R_spot) = P_elec*pri.price;
-	annotation(experiment(StartTime=0.0, StopTime=864000/*31536000.0*/, Interval=300, Tolerance=1e-06));
+	annotation(experiment(StartTime=0.0, StopTime=31536000.0, Interval=300, Tolerance=1e-06));
 end SimpleSystemOperation;

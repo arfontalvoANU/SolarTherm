@@ -14,7 +14,7 @@ model TroughDrySystem
 	parameter nSI.Time_hour t_zone = 8 "Local time zone (UCT=0)";
 	parameter Integer year = 1993 "Meteorological year";
 
-	parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/AUS_WA.Newman.Airport.943170_RMY.motab");
+	parameter String wea_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Weather/COL_COR_Monteria-Los.Garzones.AP.800630_TMYx.2004-2018.motab");
 	parameter String pri_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Prices/aemo_vic_2014.motab");
 
 	parameter SI.Irradiance dni_des = 950 "DNI at design";
@@ -49,9 +49,9 @@ model TroughDrySystem
 
 	// Beneficiation process
 	parameter Modelica.SIunits.HeatFlowRate Q_bp_des = m_des_air*Cp_des_air_out*T_des_air_out "Heat input to the beneficiation process at design";
-	parameter SI.Power P_name = Q_bp_des "Nameplate rating of (fake) power block";
+	parameter SI.Power P_name = Q_bp_des "Thermal power output at design";
 	parameter Modelica.SIunits.Temperature T_des_air_in = Modelica.SIunits.Conversions.from_degC(30) "Temperature of the air at the inlet of the solar collection system"; 
-	parameter Modelica.SIunits.Temperature T_des_air_out = Modelica.SIunits.Conversions.from_degC(400) "Temperature of the air at the outlet of the collection system (inlet of rotative dryer)"; 
+	parameter Modelica.SIunits.Temperature T_des_air_out = Modelica.SIunits.Conversions.from_degC(500) "Temperature of the air at the outlet of the collection system (inlet of rotative dryer)"; 
 	parameter Modelica.SIunits.MassFlowRate m_des_air=20 "The system will be designed to provided the this mass flow rate of air heated at specific temperature";
 	parameter Modelica.SIunits.SpecificHeatCapacityAtConstantPressure Cp_des_air_out=1e3*(1.3864e-13*((T_des_air_out)^4)-6.4747e-10*((T_des_air_out)^3)+1.0234e-6*((T_des_air_out)^2)-4.3282e-4*((T_des_air_out)^1)+1.0613); 
 	parameter Modelica.SIunits.Pressure P_air=2e5 "Pressure of the air on the collection system";
@@ -96,27 +96,27 @@ model TroughDrySystem
 		max(7.6983578254517818e2 -1.2618259870107556e3*log10(E_cap) + 8.7459597623031095e2*log10(E_cap)^2 - 3.1101604101779969e2*log10(E_cap)^3 + 5.5894377895539073e1*log10(E_cap)^4 - 4.0220819724059202*log10(E_cap)^5, 7.0823628957)
 		"Storage cost per energy capacity ($/kWh)";
 	parameter FI.PowerPrice pri_backup = 0 "Fossil fuel backup cost per power capacity ($/MWe)";
-	parameter Real pri_bop(unit = "$/kg/s") = 0 "Balance of plant cost per plant capacity";
-	parameter Real pri_block(unit = "$/kg/s") = 910 "Beneficiation process cost per plant capacity";
-	parameter FI.AreaPrice pri_land = 10000 "Land cost per area ($/acre)";
-	parameter Real pri_om_name(unit = "$/kg/s/year") = 66 "Fixed O&M cost per capacity per year";
-	parameter Real pri_om_flow_iron(unit = "$/h") = 438.1 "Variable O&M cost per production per year";
+	parameter Real pri_bop(unit = "$/kW") = 0 "Balance of plant cost per plant capacity";
+	parameter FI.AreaPrice pri_land = 10000 / 4046.86 "Land cost per area ($/acre)";
+	parameter Real pri_om_name(unit = "$/W/year") = 8/1e3 "Fixed O&M cost per capacity per year";
+	parameter Real pri_om_prod(unit = "$/J/year") = 0.001/3.6e6 "Variable O&M cost per production per year";
 	
 	parameter Modelica.SIunits.HeatFlowRate Q_hx_des = Q_bp_des;
 	parameter Modelica.SIunits.HeatFlowRate Q_hx_des_ref = 50e6;
 
-	parameter Real n = 0.65 "Cost scaling factor";
-
 	parameter FI.Money C_field = pri_field*A_field "Field cost";
 	parameter FI.Money C_site = pri_site*A_field "Site improvements cost";
 	parameter FI.Money C_storage = pri_storage*E_max/1e3/3600 "Storage cost";
+	parameter FI.Money C_bop = pri_bop*Q_bp_des "Storage cost";
 
-	parameter Real f_field = 1;
-	parameter Real f_stor = 1;
-
-	parameter FI.MoneyPerYear C_year = 10*A_col "Cost per year";
-	parameter FI.Money C_cap = f_field*C_field + f_field*C_site + f_stor*C_storage "Total capital investment";
-	parameter Real C_prod(unit="$/J/year") = 0 "Cost per production per year";
+	parameter FI.Money C_cap_dir_sub = C_field + C_site + C_storage "Direct capital cost subtotal";
+	parameter FI.Money C_contingency = 0.07 * C_cap_dir_sub "Contingency costs";
+	parameter FI.Money C_cap_dir_tot = C_cap_dir_sub + C_contingency "Direct capital cost total";
+	parameter FI.Money C_EPC = 0.11 * C_cap_dir_tot "Engineering, procurement and construction(EPC) and owner costs";
+	parameter FI.Money C_land = pri_land * A_land "Land cost";
+	parameter FI.Money C_cap = C_cap_dir_tot + C_EPC + C_land "Total capital investment";
+	parameter FI.MoneyPerYear C_year = pri_om_name * P_name "Fixed O&M cost per year";
+	parameter Real C_prod(unit="$/J/year") = pri_om_prod "Cost per production per year";
 
 	parameter Boolean constrained = false "Constraint is present in optimisation if true";
 	parameter Real distance = 0 "Distance to be added to a constant offset as added penalty when a constraint is not respected";

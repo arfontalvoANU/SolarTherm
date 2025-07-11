@@ -36,7 +36,8 @@ def simulate(wd, par_n, i, par_v):
 	res={}
 	mat = DyMat.DyMatFile('%s/TroughDrySystem_res_%s.mat'%(wd,i))                    # Loading result file
 	res['sm'] = mat.data('SM')[0]                                                    # Solar multiple
-	res['storage'] = mat.data('t_storage')[0]                                      # Full load hours of storage
+	res['storage'] = mat.data('t_storage')[0]                                        # Full load hours of storage
+	res['T_air'] = mat.data('T_des_air_out')[0]                                       # Temperature of the air at the outlet of the collection system (inlet of rotative dryer)
 	res['lcoh'] = perf[1]
 	res['capf'] = perf[2]
 	return res
@@ -50,15 +51,16 @@ def simulation_callback(i,worksheet,perf):
 	k = 0
 	worksheet.write(i+1,k,perf['sm']); k = k + 1
 	worksheet.write(i+1,k,perf['storage']); k = k + 1
+	worksheet.write(i+1,k,perf['T_air']); k = k + 1
 	worksheet.write(i+1,k,perf['lcoh']); k = k + 1
 	worksheet.write(i+1,k,perf['capf'])
 	return None
 
-def parameter_sweep(async):
-	wd=os.path.join(os.getenv('HOME'),'solartherm','examples')
+def parameter_sweep(T_air,async):
+	wd=os.path.join(os.getenv('HOME'),'PROJECTS','solartherm-arturo','examples')
 	stcompile(wd)                                                                    # Compiling and initialising the simulation
-	sol_multi = np.linspace(1,4,4)                                                   # Defining solar multiple to sweep
-	t_storage = np.linspace(10,40,4)                                                 # Defining storage hours to sweep
+	sol_multi = np.arange(1,10.1,1)                                   # Defining solar multiple to sweep
+	t_storage = np.arange(5,30.1,5)                                    # Defining storage hours to sweep
 	par_v = []
 	for i,j in enumerate(itertools.product(sol_multi,t_storage)):
 		j = map(str,list(j))
@@ -69,10 +71,11 @@ def parameter_sweep(async):
 	workbook = xlsxwriter.Workbook('results.xlsx')                                   # Writting results in text and xlsx files
 	worksheet = workbook.add_worksheet()
 	col = 0
-	worksheet.write(0,col,'Solar multiple'); col += 1
-	worksheet.write(0,col,'Full load hours of storage'); col += 1
-	worksheet.write(0,col,'LCOH ($/MWh)'); col += 1
-	worksheet.write(0,col,'capf (%)'); col += 1
+	worksheet.write(0,col,'solar_multiple'); col += 1
+	worksheet.write(0,col,'t_storage'); col += 1
+	worksheet.write(0,col,'T_air'); col += 1
+	worksheet.write(0,col,'LCOH'); col += 1
+	worksheet.write(0,col,'capacity_factor'); col += 1
 
 	if async:
 		objfunc = functools.partial(simulate, wd, par_n)
@@ -87,19 +90,20 @@ def parameter_sweep(async):
 			simulation_callback(i,worksheet,perf)
 
 	workbook.close()
-
+	os.system('cp %s/results.xlsx /home/arfontalvo/Dropbox/solarpaces_2023/decarbonisation/T%s.xlsx'%(wd,T_air))
 	clean_comp_files(wd)
 	return None
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
+	parser.add_argument('T')
 	parser.add_argument('--async',action='store_true')
 	parser.add_argument('--sequential', dest='async', action='store_false')
 	parser.set_defaults(async=True)
 	args = parser.parse_args()
 
 	tinit = time()
-	parameter_sweep(args.async)
+	parameter_sweep(args.T,args.async)
 	seconds = time() - tinit
 	m, s = divmod(seconds, 60)
 	h, m = divmod(m, 60)

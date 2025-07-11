@@ -22,8 +22,7 @@ model FieldAnnualOpticalInterpolation "Field annual interpolation"
 	parameter Integer year = 2006 "Meteorological year";
 
 	parameter SolarTherm.Types.Solar_angles angles = SolarTherm.Types.Solar_angles.elo_hra "Angles used in the lookup table file";
-//	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice.motab");
-	parameter String opt_file = "/home/arfontalvo/ownCloud/Thesis/figures/chapter4/OELTs_safety_factors/case4/OELTs_Solstice.motab";
+	parameter String opt_file = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice.motab");
 	parameter String fileW1 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W1.motab");
 	parameter String fileW2 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W2.motab");
 	parameter String fileW3 = Modelica.Utilities.Files.loadResource("modelica://SolarTherm/Data/Optics/OELTs_Solstice_W3.motab");

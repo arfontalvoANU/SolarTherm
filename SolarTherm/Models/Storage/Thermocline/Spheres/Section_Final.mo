@@ -393,9 +393,13 @@ equation
   end if;
   
   annotation (Documentation(revisions ="<html>
-		<p>By Zebedee Kee on 03/12/2020</p>
-		</html>",info="<html>
-		<p>This model contains the heat-transfer calculations of a thermocline packed bed storage tank with spherical filler geometry. This model does not contain any fluid connectors, for the CSP component with connectors, see Thermocline_Spheres_SingleTank. Variables fluid_top and fluid_bot provides the enthalpy-temperature relationship of the fluid material. Depending on whether m_flow is positive (discharging, fluid flowing upwards) or negative (charging, fluid flowing downwards), the charging/discharging equations are applied. In this iteration of the model, discharging and standby are lumped into one state.</p>
-		</html>"));
+    <p>By Zebedee Kee on 03/12/2020</p>
+    </html>",info="<html>
+    <p>This model contains the heat-transfer calculations of a thermocline packed bed storage tank with spherical filler geometry. 
+    This model does not contain any fluid connectors, for the CSP component with connectors, see Thermocline_Spheres_SingleTank. 
+    Variables fluid_top and fluid_bot provides the enthalpy-temperature relationship of the fluid material. 
+    Depending on whether m_flow is positive (discharging, fluid flowing upwards) or negative (charging, fluid flowing downwards), 
+    the charging/discharging equations are applied. In this iteration of the model, discharging and standby are lumped into one state.</p>
+    </html>"));
 
 end Section_Final;

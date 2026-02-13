@@ -7,7 +7,7 @@ model PBS_1T_Spheres "Packed-bed storage with air and spheres of MgO"
     extends Modelica.Icons.Example;
     package Medium = SolarTherm.Media.Air.Air_CoolProp_1bar;
     package Fluid_Package = SolarTherm.Materials.Air_CoolProp_Table_1bar;
-    package Filler_Package = SolarTherm.Materials.MgO;
+    package Filler_Package = SolarTherm.Materials.Steatite;
 
     //Heat Transfer Convection Coefficient
     parameter Integer Correlation = 1 "Conservative";
@@ -32,8 +32,8 @@ model PBS_1T_Spheres "Packed-bed storage with air and spheres of MgO"
     parameter Real eta = 0.4 "Porosity"; 
     parameter SI.Energy E_max = 2.2691652e7 "Storage capacity (J), t_discharge(s), 100MWe, 50% PB efficiency";
     parameter Real eff_PB = 0.40 "Power block heat to electricity conversion efficiency";
-    parameter SI.Time t_charge = 2.0*3600.0 "Charging period";
-    parameter SI.Time t_discharge = 2.0*3600.0 "Discharging period";
+    parameter SI.Time t_charge = 2.5*3600.0 "Charging period";
+    parameter SI.Time t_discharge = t_charge "Discharging period";
     parameter SI.Time t_extension = 2.0*3600.0 "Extension period to make sure charging and discharging complete, applied twice";
     parameter SI.Time t_standby = 12.0*3600.0 - t_charge - t_discharge - 2.0*t_extension "Standby period between discharge and charge";
     parameter SI.Power P_name = 100.0e6 "Nameplate power block";
@@ -47,8 +47,9 @@ model PBS_1T_Spheres "Packed-bed storage with air and spheres of MgO"
     parameter SI.Time t_cycle = t_charge + t_discharge + t_standby + 2.0*t_extension; //this is 24 hours
     parameter SI.SpecificEnthalpy h_f_min = Fluid_Package.h_Tf(T_min, 0.0);
     parameter SI.SpecificEnthalpy h_f_max = Fluid_Package.h_Tf(T_max, 1.0);
-    parameter SI.MassFlowRate m_flow_charge = E_max / (t_charge * (h_f_max - h_f_min));
-    parameter SI.MassFlowRate m_flow_discharge = E_max / (t_discharge * (h_f_max - h_f_min));
+    parameter SI.MassFlowRate m_flow_charge = 0.225 * 0.25*Modelica.Constants.pi*thermocline_Tank.Tank_A.D_tank^2;//E_max / (t_charge * (h_f_max - h_f_min));
+    parameter SI.MassFlowRate m_flow_discharge = m_flow_charge;//E_max / (t_discharge * (h_f_max - h_f_min));
+    parameter Real m_flux = m_flow_charge / (0.25*Modelica.Constants.pi*thermocline_Tank.Tank_A.D_tank^2);
 
     //Output signals
     Modelica.Fluid.Sources.Boundary_pT Recv_outlet(redeclare package Medium = Medium, T = T_max, nPorts = 1, p = 101325) annotation(
@@ -274,7 +275,7 @@ equation
     connect(thermocline_Splitter1.fluid_c, mass_loop_breaker.port_a) annotation(
         Line(points = {{0, 81}, {0, 64}}, color = {0, 127, 255}));
     annotation(
-        experiment(StopTime = 86400, StartTime = 0, Tolerance = 1e-4, Interval = 60),
+        experiment(StopTime = 4800, StartTime = 0, Tolerance = 1e-4, Interval = 60),
         Diagram(coordinateSystem(extent = {{-150, -100}, {150, 100}}, preserveAspectRatio = false)),
         Icon(coordinateSystem(extent = {{-150, -100}, {150, 100}}, preserveAspectRatio = false)),
     Documentation(info =

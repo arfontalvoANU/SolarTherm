@@ -35,8 +35,8 @@ model Section_Final "Heat transfer model of thermocline tank with spherical fill
   parameter SI.Temperature T_start = T_min "Initial (uniform) temperature of all components (K), defaults to T_min";
   
   //Calculated Tank Design Parameters
-  parameter SI.Length H_tank = (4 * E_max / (CN.pi * (1 / ar) ^ 2 * (rho_f_avg * (h_f_max - h_f_min) * eta + rho_p * (h_p_max - h_p_min) * (1.0 - eta)))) ^ (1 / 3);
-  parameter SI.Diameter D_tank = H_tank / ar;
+  parameter SI.Length H_tank = 1.2;
+  parameter SI.Diameter D_tank = 0.148;
   parameter SI.Area A = CN.pi * D_tank * D_tank / 4.0 "Cross sectional area of tank";
   
   //Thermal Losses

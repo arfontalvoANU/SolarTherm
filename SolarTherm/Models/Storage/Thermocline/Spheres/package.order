@@ -1,6 +1,8 @@
 Section_Final
-LC_Section_Final
+Section_Final_Lumped
 SingleTank_Final
+SingleTank_Final_Lumped
+LC_Section_Final
 LC_SingleTank_Final
 Series
 Parallel

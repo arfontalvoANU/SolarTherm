@@ -101,6 +101,7 @@ model Section_Final "Heat transfer model of thermocline tank with spherical fill
   SI.MassFlowRate m_flow(start=0.0) "kg/s";
   SI.Velocity u_flow "Fluid velocity in packed bed (m/s)";
   SI.Velocity u_0 "Fluid velocity through empty cross section = u_flow/eta (m/s)";
+  SI.Velocity u_f[N_f] "Fluid velocity in packed bed (m/s)";
   
   //Analytics
   SI.Energy E_stored(start = 0.0) "Make sure the tank starts from T_min for this to be correct";
@@ -179,6 +180,7 @@ protected
   //SI.ThermalConductivity k_eff[N_f] "W/mK";
   SI.DynamicViscosity mu_f[N_f] "Pa.s";
   SI.SpecificHeatCapacity c_pf[N_f] "J/kgK";
+  SI.Density rho_f[N_f] "kg/m3";
   Fluid_Package.State fluid[N_f]"Fluid object array";//(each h_start = h_f_min) 
   
   //Try filler state "Remove this if using function-based calculation"
@@ -194,11 +196,11 @@ algorithm
   //Bottom Charging Fluid Node
     der_h_f[1] :=
     ( (-2.0*k_f[1]*k_f[2])*(T_f[1]-T_f[2])/((k_f[1]+k_f[2])*dz*dz)
-    + (rho_f_avg*u_flow)*(h_f[1]-h_f[2])/dz
+    + (rho_f[1]*u_f[1])*(h_f[1]-h_f[2])/dz
     - h_v[1]*(T_f[1] - T_s[1])/eta
     - U_bot*(T_f[1]-T_amb)/(eta*dz) 
-    - U_wall*CN.pi*D_tank*(T_f[1]-T_amb)/(eta*A) ) / (rho_f_avg);
-    
+    - U_wall*CN.pi*D_tank*(T_f[1]-T_amb)/(eta*A) ) / (rho_f[1]);
+  
     h_out := h_f[1];
   //End Bottom Charging Fluid Node
   //Middle Charging Fluid Nodes
@@ -206,46 +208,46 @@ algorithm
       der_h_f[i] := 
       ( 2.0*k_f[i - 1]*k_f[i]*(T_f[i-1]-T_f[i])/((k_f[i-1]+k_f[i])*dz*dz)
       - 2.0*k_f[i]*k_f[i+1]*(T_f[i]-T_f[i + 1])/((k_f[i]+k_f[i+1])*dz*dz)
-      + (rho_f_avg*u_flow)*(h_f[i]-h_f[i+1])/dz
+      + (rho_f[i]*u_f[i])*(h_f[i]-h_f[i+1])/dz
       - h_v[i]*(T_f[i]-T_s[i])/eta
-      - U_wall*CN.pi*D_tank*(T_f[i]-T_amb)/(eta*A) )/ (rho_f_avg);
+      - U_wall*CN.pi*D_tank*(T_f[i]-T_amb)/(eta*A) )/ (rho_f[i]);
     end for;
   //End Middle Charging Fluid Nodes
   //Top Charging Fluid Node
     der_h_f[N_f] := 
     (2.0*k_f[N_f-1]*k_f[N_f]*(T_f[N_f-1]-T_f[N_f])/((k_f[N_f-1]+k_f[N_f])*dz*dz)
-    + (rho_f_avg*u_flow)*(h_f[N_f]-h_in)/dz
+    + (rho_f[N_f-1]*u_f[N_f-1])*(h_f[N_f]-h_in)/dz
     - h_v[N_f]*(T_f[N_f]-T_s[N_f])/eta
     - U_wall*CN.pi*D_tank*(T_f[N_f]-T_amb)/(eta*A)
-    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f_avg);
+    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f[N_f-1]);
   //End Top Charging Fluid Node
   else
   //Discharge (Mass flows bottom to top)
   //Bottom Discharge Node
     der_h_f[1] :=
     (-2.0*k_f[1]*k_f[2]*(T_f[1]-T_f[2])/((k_f[1]+k_f[2])*dz*dz)
-    + (rho_f_avg*u_flow)*(h_in-h_f[1])/dz
+    + (rho_f[1]*u_f[1])*(h_in-h_f[1])/dz
     - h_v[1]*(T_f[1]-T_s[1])/eta
     - U_bot*(T_f[1]-T_amb)/(eta*dz)
-    - U_wall*CN.pi*D_tank*(T_f[1]-T_amb)/(eta*A) )/ (rho_f_avg);
+    - U_wall*CN.pi*D_tank*(T_f[1]-T_amb)/(eta*A) )/ (rho_f[1]);
   //End Bottom Discharge Node
   //Middle Discharge Nodes
     for i in 2:N_f - 1 loop
       der_h_f[i] :=
       ( 2.0*k_f[i-1]*k_f[i]*(T_f[i-1]-T_f[i])/((k_f[i-1]+k_f[i])*dz*dz)
       - 2.0*k_f[i]*k_f[i + 1]*(T_f[i]-T_f[i+1])/((k_f[i]+k_f[i+1])*dz*dz)
-      + (rho_f_avg*u_flow)*(h_f[i-1]-h_f[i])/dz
+      + (rho_f[i-1]*u_f[i-1])*(h_f[i-1]-h_f[i])/dz
       - h_v[i]*(T_f[i]-T_s[i])/eta
-      - U_wall*CN.pi*D_tank*(T_f[i]-T_amb)/(eta*A) ) / (rho_f_avg);
+      - U_wall*CN.pi*D_tank*(T_f[i]-T_amb)/(eta*A) ) / (rho_f[i-1]);
     end for;
   //End Middle Discharge Nodes
   //Top Discharge Node
     der_h_f[N_f] :=
     ( 2.0*k_f[N_f-1]*k_f[N_f]*(T_f[N_f-1]-T_f[N_f])/((k_f[N_f-1]+k_f[N_f])*dz*dz)
-    + (rho_f_avg*u_flow)*(h_f[N_f-1]-h_f[N_f])/dz
+    + (rho_f[N_f-1]*u_f[N_f-1])*(h_f[N_f-1]-h_f[N_f])/dz
     - h_v[N_f]*(T_f[N_f]-T_s[N_f])/eta
     - U_wall*CN.pi*D_tank*(T_f[N_f]-T_amb)/(eta*A)
-    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f_avg);
+    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f[N_f-1]);
     
     h_out := h_f[N_f];
   end if;
@@ -286,6 +288,8 @@ equation
     k_f[i] = fluid[i].k;
     //k_eff[i] = eta*fluid[i].k; //Effective thermal conductivity of fluid (weighted by porosity)
     mu_f[i] = fluid[i].mu;
+    rho_f[i] = fluid[i].rho;
+    u_f[i] = m_flow / (eta * rho_f[i] * A);
 
   end for;
   //Particle Property evaluation quartzite and sand
@@ -314,8 +318,8 @@ equation
   for i in 1:N_f loop
     Bi[i] = (Nu[i]*k_f[i])/(6.0*k_p[i,N_p]); //Use outermost shell conductivity
     Pe[i] = Re[i]*Pr[i];
-    if abs(u_flow) > 1e-12 then //There is actually mass flowing
-      Re[i] = rho_f_avg * d_p * abs(u_0) / mu_f[i]; //Use superficial velocity u_0 instead of intersitial velocity u_flow
+    if abs(m_flow) > 1e-12 then //There is actually mass flowing
+      Re[i] = abs(m_flow) / A * d_p / mu_f[i]; //Use local superficial velocity: u0[i] = m_flow / (rho_f[i] * A)
       Pr[i] = c_pf[i] * mu_f[i] / k_f[i];
       if Correlation == 1 then 
         Nu[i] = 2.0 + 1.1 * (Re[i] ^ 0.6) * (Pr[i] ^ (1 / 3)); //Wakao and Kaguei
@@ -374,7 +378,7 @@ equation
   
   //Calculated Pumping losses
   for i in 1:N_f loop
-    p_drop[i] = dz*(((600*((1-eta)^2)*mu_f[i]*abs(m_flow))/((eta^3)*(d_p^2)*rho_f_avg*CN.pi*(D_tank^2)))+((28*(1-eta)*(m_flow^2))/((eta^3)*d_p*rho_f_avg*CN.pi*CN.pi*(D_tank^4))));
+    p_drop[i] = dz*(((600*((1-eta)^2)*mu_f[i]*abs(m_flow))/((eta^3)*(d_p^2)*rho_f[i]*CN.pi*(D_tank^2)))+((28*(1-eta)*(m_flow^2))/((eta^3)*d_p*rho_f[i]*CN.pi*CN.pi*(D_tank^4))));
   end for;
   
   p_drop_total = sum(p_drop);

@@ -17,7 +17,8 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   parameter SI.Energy E_max = 144.0e9 "Maximum storage capacity";
   
     //Aspect ratios (H/D) of tank
-  parameter Real ar = 2.0 "Aspect ratio of tank";
+  parameter SI.Length H_tank = 1.2;
+  parameter SI.Diameter D_tank = 0.148;
   
     //Porosity of tank filler materials
   parameter Real eta = 0.4 "Porosity";
@@ -32,13 +33,15 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   parameter Integer N_f = 10;
   parameter Integer N_p = 5;
   
-  
+  parameter Real C_ax = 0.4;
+    
   //Heat loss coefficient of tanks
   parameter SI.CoefficientOfHeatTransfer U_loss_tank = 0.1 "W/m2K";
   
   //Temperature Settings
   parameter SI.Temperature T_min = 293 "Minimum temperature (design) also starting T";
   parameter SI.Temperature T_max = 823 "Maximum design temperature (design)";
+  parameter SI.Temperature T_start = 293 "Initial (uniform) temperature of all components (K), defaults to T_min";
 
   //Input and Output Ports
   Modelica.Blocks.Interfaces.RealInput T_amb "Ambient Temperature"
@@ -73,15 +76,29 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
     redeclare replaceable package Encapsulation_Package = Encapsulation_Package,
     Correlation = Correlation,
     E_max = E_max,
-    ar = ar,
     eta = eta,
     d_p = d_p,
     T_min = T_min,
     T_max = T_max,
+    T_start = T_start,
     N_f = N_f,
     N_p = N_p,
     U_loss_tank = U_loss_tank,
-    t_e = t_e);
+    H_tank = H_tank,
+    D_tank = D_tank,
+    C_ax = C_ax,
+    t_e = t_e) 
+    annotation (
+        Placement(
+            visible = true,
+            transformation(
+                origin={0, 0},
+                extent={{10, -10}, {-10, 10}},
+                rotation=0),
+            iconTransformation(
+                origin={0, 0},
+                extent={{-10, -10}, {10, 10}},
+                rotation=0)));
 
   //Tank Non-dimensionalized vertical axis
   parameter Real ZDH[N_f] = Tank_A.ZDH;

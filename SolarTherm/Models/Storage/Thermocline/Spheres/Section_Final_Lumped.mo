@@ -23,7 +23,6 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
 
   //Tank Design parameters
   parameter SI.Energy E_max = 144e9 "Design storage capacity";
-  parameter Real ar = 2.0 "Tank Aspect ratio H/D";
   parameter Real eta = 0.4 "Porosity";
   parameter Real d_p = 0.02 "Diameter of sphere (particle) (m)";
   parameter Real t_e = d_p/(2.0*N_p) "Thickness of encapsulation, default is such that it is at a value that preserves equidistant radii discretizations (m)";
@@ -31,7 +30,7 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   //Temperature Bounds
   parameter SI.Temperature T_min = 293 "Design cold Temperature of everything in the tank (K)";
   parameter SI.Temperature T_max = 823 "Design hot Temperature of everything in the tank (K)";
-  parameter SI.Temperature T_start = T_min "Initial (uniform) temperature of all components (K), defaults to T_min";
+  parameter SI.Temperature T_start = 293 "Initial (uniform) temperature of all components (K), defaults to T_min";
 
   //Calculated Tank Design Parameters
   parameter SI.Length H_tank = 1.2;
@@ -191,10 +190,10 @@ algorithm
   //Top Charging Fluid Node
     der_h_f[N_f] := 
     (2.0*k_f_eff[N_f-1]*k_f_eff[N_f]*(T_f[N_f-1]-T_f[N_f])/((k_f_eff[N_f-1]+k_f_eff[N_f])*dz*dz)
-    + (rho_f[N_f-1]*u_f[N_f-1])*(h_f[N_f]-h_in)/dz
+    + (rho_f[N_f]*u_f[N_f])*(h_f[N_f]-h_in)/dz
     - h_v[N_f]*(T_f[N_f]-T_p[N_f])/eta
     - U_wall*CN.pi*D_tank*(T_f[N_f]-T_amb)/(eta*A)
-    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f[N_f-1]);
+    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f[N_f]);
   //End Top Charging Fluid Node
   else
   //Discharge (Mass flows bottom to top)
@@ -211,18 +210,18 @@ algorithm
       der_h_f[i] :=
       ( 2.0*k_f_eff[i-1]*k_f_eff[i]*(T_f[i-1]-T_f[i])/((k_f_eff[i-1]+k_f_eff[i])*dz*dz)
       - 2.0*k_f_eff[i]*k_f_eff[i + 1]*(T_f[i]-T_f[i+1])/((k_f_eff[i]+k_f_eff[i+1])*dz*dz)
-      + (rho_f[i-1]*u_f[i-1])*(h_f[i-1]-h_f[i])/dz
+      + (rho_f[i]*u_f[i])*(h_f[i-1]-h_f[i])/dz
       - h_v[i]*(T_f[i]-T_p[i])/eta
-      - U_wall*CN.pi*D_tank*(T_f[i]-T_amb)/(eta*A) ) / (rho_f[i-1]);
+      - U_wall*CN.pi*D_tank*(T_f[i]-T_amb)/(eta*A) ) / (rho_f[i]);
     end for;
   //End Middle Discharge Nodes
   //Top Discharge Node
     der_h_f[N_f] :=
     ( 2.0*k_f_eff[N_f-1]*k_f_eff[N_f]*(T_f[N_f-1]-T_f[N_f])/((k_f_eff[N_f-1]+k_f_eff[N_f])*dz*dz)
-    + (rho_f[N_f-1]*u_f[N_f-1])*(h_f[N_f-1]-h_f[N_f])/dz
+    + (rho_f[N_f]*u_f[N_f])*(h_f[N_f-1]-h_f[N_f])/dz
     - h_v[N_f]*(T_f[N_f]-T_p[N_f])/eta
     - U_wall*CN.pi*D_tank*(T_f[N_f]-T_amb)/(eta*A)
-    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f[N_f-1]);
+    - U_top*(T_f[N_f]-T_amb)/(eta*dz) ) / (rho_f[N_f]);
   
     h_out := h_f[N_f];
   end if;

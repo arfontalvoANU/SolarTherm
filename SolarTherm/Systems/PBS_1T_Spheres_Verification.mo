@@ -7,26 +7,30 @@ model PBS_1T_Spheres_Verification "Packed-bed storage with air and spheres os st
     extends Modelica.Icons.Example;
     package Medium = SolarTherm.Media.Air.Air_CoolProp_1bar;
     package Fluid_Package = SolarTherm.Materials.Air_CoolProp_Table_1bar;
-    package Filler_Package = SolarTherm.Materials.MgO_constant;
+    package Filler_Package = SolarTherm.Materials.Steatite;
+
+    // Case selection
+    parameter Verification.ScenarioBank data;
+    parameter Verification.CaseData currentCase = data.case1;
 
     //Heat Transfer Convection Coefficient
     parameter Integer Correlation = 1 "Wakao & Kaguei";
 
     //Numerical Discretisation
-    parameter Integer N_f = 500 "Number of fluid CVs in each tank";//360
+    parameter Integer N_f = 100 "Number of fluid CVs in each tank";//360
     parameter Integer N_p = 10 "Number of filler CVs  in main tank";
 
     //Design Parameters
     parameter SI.Energy E_max = 20 * 3.6e9 "Storage capacity (J)";
-    parameter SI.Temperature T_max = 1173 "Maximum temperature (K)";
-    parameter SI.Temperature T_min = 613 "Minimum temperature (K)";
+    parameter SI.Temperature T_max = currentCase.T_max "Maximum temperature";
+    parameter SI.Temperature T_min = currentCase.T_min "Minimum temperature";
     parameter SI.Temperature T_start = 293 "Packed-bed initial temperature";
     parameter Real eta = 0.4 "Packed-bed porosity"; 
-    parameter SI.Length H_tank = 12.28;
-    parameter SI.Diameter D_tank = 2.46;
-    parameter SI.CoefficientOfHeatTransfer U_loss_tank = 0.0 "W/m2K";
+    parameter SI.Length H_tank = currentCase.H_tank;
+    parameter SI.Diameter D_tank = currentCase.D_tank;
+    parameter SI.CoefficientOfHeatTransfer U_loss_tank = currentCase.U_loss_tank "W/m2K";
     parameter SI.Length d_p = 0.02 "Filler diameter";
-    parameter SI.MassFlowRate m_flow = m_flow_charge;
+    parameter SI.MassFlowRate m_flow = currentCase.m_flow;
     parameter Real C_ax = 0.0;
   
     // Calculated parameters
@@ -252,7 +256,7 @@ equation
     Line(points = {{70, 80}, {50, 80}, {50, -42}}, color = {0, 0, 127}));
 
 annotation(
-    experiment(StopTime = 12.5e3, StartTime = 0, Tolerance = 1e-4, Interval = 60),
+    experiment(StopTime = 5000, StartTime = 0, Tolerance = 1e-4, Interval = 60),
     Diagram(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Icon(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Documentation(info =

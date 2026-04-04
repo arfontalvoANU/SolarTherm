@@ -159,6 +159,6 @@ equation
     Line(points = {{126, 26}, {130, 26}, {130, 94}, {90, 94}, {90, 86}, {92, 86}}, color = {0, 0, 127}));
   annotation(
     Diagram(coordinateSystem(preserveAspectRatio = false, extent = {{-200, -100}, {200, 100}}, initialScale = 0.1), graphics = {Text(origin = {85, 68}, extent = {{-11, 4}, {23, -10}}, textString = "Hot Pump"), Text(origin = {-21, -90}, extent = {{-11, 4}, {23, -10}}, textString = "Cold Pump"), Text(origin = {-29, 0}, extent = {{-11, 4}, {13, -6}}, textString = "Heater")}),
-    Icon(coordinateSystem(extent = {{-200, -100}, {200, 100}}, preserveAspectRatio = false)), experiment(StopTime = 3.1536e+07, StartTime = 0, Tolerance = 1.0e-6, Interval = 300, maxStepSize = 60, initialStepSize = 60));
+    Icon(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)), experiment(StopTime = 3.1536e+07, StartTime = 0, Tolerance = 1.0e-6, Interval = 300, maxStepSize = 60, initialStepSize = 60));
 
 end WindPVAnnularTESsystem;

@@ -1,4 +1,4 @@
-within examples;
+within PackedBedStorage;
 model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   extends Modelica.Icons.Example;
   import SI = Modelica.SIunits;

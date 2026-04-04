@@ -23,20 +23,26 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   parameter SI.Temperature T_max = 1173 "Design hot Temperature of everything in the tank (K)";
   parameter SI.Temperature T_start = 293 "Initial (uniform) temperature of all components (K), defaults to T_min";
   final parameter SI.Temperature T_stop_charging = T_max - 0.85*(T_max - T_min);
+  final parameter SI.Temperature T_stop_discharging = T_min + 0.85*(T_max - T_min);
   parameter SI.Power P_charging = 10e6;
-  parameter SI.MassFlowRate m_flow_case = 13.7860;
-  parameter SI.MassFlowRate m_flow_case_check = P_charging/(hf_max - hf_min);
+  parameter SI.Power P_discharging = 5e6;
+  parameter SI.MassFlowRate m_flow_chg = P_charging/(hf_max - hf_min);
+  parameter SI.MassFlowRate m_flow_dis = P_discharging/(hf_max - hf_min);
 
   //Calculated Tank Design Parameters
   parameter SI.Length H_tank = 8.0;
   parameter SI.Diameter D_tank = 3.44;
   parameter Real f_area = 0.95;
   parameter SI.Area A = 0.25 * CN.pi * D_tank^2 "Cross sectional area of tank";
+  parameter SI.Volume V = A*H_tank;
+  parameter SI.Mass ms = (1-epsilon)*V*rhos;
+  parameter SI.Density rhof_avg = 0.5*(rhof_max + rhof_min);
+  parameter SI.Mass mf = epsilon*V*rhof_avg;
+  parameter SI.Energy E_max = mf*(hf_max-hf_min) + ms*cps*(T_max-T_min);
 
   //Thermal Losses
-  parameter SI.Temperature T_amb = 298.15 "Ambient temperature (K)";
   parameter SI.Area A_loss_tank = CN.pi*D_tank*D_tank*0.5 + CN.pi*D_tank*H_tank "Heat loss area (m2)";
-  parameter SI.CoefficientOfHeatTransfer U_loss_tank = 0.0 "Heat loss coeff of surfaces (W/m2K)";
+  parameter SI.CoefficientOfHeatTransfer U_loss_tank = 0.678 "Heat loss coeff of surfaces (W/m2K)";
   parameter SI.CoefficientOfHeatTransfer U_wall = U_loss_tank "Cylinder wall heat loss coeff (W/m2K)";
   parameter SI.CoefficientOfHeatTransfer U_top = U_loss_tank "Top circle heat loss coeff (W/m2K)";
   parameter SI.CoefficientOfHeatTransfer U_bot = U_loss_tank "Bottom circle heat loss coeff (W/m2K)";
@@ -55,7 +61,7 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
     //Discretization
   parameter SI.Length dz = H_tank / Nz "discretization vertical length of fluid";
 
-  parameter Integer Nz = 400 "Number of finite volume elements in fluid";
+  parameter Integer Nz = 200 "Number of finite volume elements in fluid";
 
   //Initialise Fluid Array
   parameter SI.Length z[Nz] = linspace(0, H_tank, Nz);
@@ -63,7 +69,7 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   SI.SpecificEnthalpy hf[Nz](start = hf_start) "J/kg";
 
   //Inlet and outlet enthalpies and temperatures
-  SI.SpecificEnthalpy h_in "Inlet Enthalpy depends on mass flow direction (J/kg)";
+  SI.SpecificEnthalpy h_in(start = hf_max) "Inlet Enthalpy depends on mass flow direction (J/kg)";
 
   //Mass flow rates and superficial velocity
   SI.MassFlowRate m_flow "kg/s";
@@ -89,43 +95,81 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   SI.DynamicViscosity muf[Nz] "Pa.s";
   SI.SpecificHeatCapacity cpf[Nz] "J/kgK";
   SI.Density rhof[Nz] "kg/m3";
-  Medium.State fluid[Nz]"Fluid object array";//(each h_start = hf_min) 
 
-  SI.Energy E_f[Nz];
-  SI.Energy E_s[Nz];
-  SI.Power P_f[Nz];
-  SI.Power P_s[Nz];
-  SI.Power Pf;
-  SI.Power Ps;
+  // Importing weather data file
+  parameter String weather_file = Modelica.Utilities.Files.loadResource("/home/arfontalvo/Dropbox/PROJECTS/RMIT/Section1DV2/weather_file.motab");
+
+  // Models
+  Modelica.Blocks.Sources.CombiTimeTable weather(
+      columns = {2,3},
+      fileName = weather_file,
+      tableName = "weather",
+      tableOnFile = true,
+  smoothness=Modelica.Blocks.Types.Smoothness.ContinuousDerivative);
+  SI.Temperature T_amb;
+  parameter Real h_standby = 2;
+  final parameter SI.Time t_standby = 3600*h_standby;
+  Integer state;
+  SI.Time t_start_discharging;
+
+  Modelica.Blocks.Continuous.LimPID pid_chg(
+    Ti = 60,
+    k = 1.0,
+    yMin = 0,
+    yMax = m_flow_chg,
+    y_start = m_flow_chg,
+    initType = Modelica.Blocks.Types.InitPID.InitialOutput,
+    limitsAtInit = true);
+
+protected
+  Medium.State fluid[Nz]"Fluid object array";
+
+algorithm
+    when Tf[1] > T_stop_charging then
+        t_start_discharging := time + t_standby;
+        state := 1;
+    end when;
+    when time > t_start_discharging and state < 2 then
+        t_start_discharging := time + t_standby;
+        state := 2;
+    end when;
+    when Tf[Nz] < T_stop_discharging and state > 0 then
+        t_start_discharging := time + t_standby;
+        state := 0;
+    end when;
 
 initial equation
   for i in 1:Nz loop
     fluid[i].h = hf_start[i];
   end for;
-  m_flow = -m_flow_case;
+  m_flow = -m_flow_chg;
+  t_start_discharging = 1e6;
+  state = 0;
   h_in = hf_max;
 
-algorithm
-    when Tf[1] >= T_stop_charging then //Start discharging
-        m_flow := +m_flow_case;
-        h_in := hf_min;
-    end when;
-
 equation
+    T_amb = Modelica.SIunits.Conversions.from_degC(weather.y[1]);
+    pid_chg.u_m = Tf[1];
+    pid_chg.u_s = T_stop_charging;
+    if state == 2 then
+        m_flow = m_flow_dis;
+        h_in = hf_min;
+    else
+        m_flow = -pid_chg.y;
+        h_in = hf_max;
+    end if;
 
     if m_flow < 0 then
         //Bottom
-//        der(rhof[1]) * hf[1] + 
         rhof[1] * der(hf[1]) =
         -2*kf[1]*kf[2]/(kf[1]+kf[2]) * (Tf[1]-Tf[2])/(dz^2)
         +rhof[1]*uf[1]/epsilon*(hf[1]-hf[2])/dz
         -hv[1]*(Tf[1] - Ts[1])/epsilon
-        -U_bot*(Tf[1]-T_amb)/(epsilon*dz) 
+        -U_bot*(Tf[1]-T_amb)/(epsilon*dz)
         -U_wall*CN.pi*D_tank*(Tf[1]-T_amb)/(epsilon*A);
 
         //Middle
         for i in 2:Nz - 1 loop
-//            der(rhof[i]) * hf[i] + 
             rhof[i] * der(hf[i]) =
             -2*kf[i]*kf[i-1]/(kf[i]+kf[i-1]) * (Tf[i]-Tf[i-1])/(dz^2)
             -2*kf[i]*kf[i+1]/(kf[i]+kf[i+1]) * (Tf[i]-Tf[i+1])/(dz^2)
@@ -135,7 +179,6 @@ equation
         end for;
 
         //Top
-//        der(rhof[Nz]) * hf[Nz] + 
         rhof[Nz] * der(hf[Nz]) =
         -2*kf[Nz-1]*kf[Nz]/(kf[Nz-1]+kf[Nz]) * (Tf[Nz]-Tf[Nz-1])/(dz^2)
         +rhof[Nz]*uf[Nz]/epsilon*(hf[Nz]-h_in)/dz
@@ -144,7 +187,6 @@ equation
         -U_top*(Tf[Nz]-T_amb)/(epsilon*dz);
     else
         //Bottom
-//        der(rhof[1]) * hf[1] + 
         rhof[1] * der(hf[1]) =
         -2*kf[1]*kf[2]/(kf[1]+kf[2]) * (Tf[1]-Tf[2])/(dz^2)
         +rhof[1]*uf[1]/epsilon*(h_in-hf[1])/dz
@@ -154,7 +196,6 @@ equation
 
         //Middle
         for i in 2:Nz - 1 loop
-//            der(rhof[i]) * hf[i] + 
             rhof[i] * der(hf[i]) = 
             -2*kf[i]*kf[i-1]/(kf[i]+kf[i-1]) * (Tf[i]-Tf[i-1])/(dz^2)
             -2*kf[i]*kf[i+1]/(kf[i]+kf[i+1]) * (Tf[i]-Tf[i+1])/(dz^2)
@@ -164,7 +205,6 @@ equation
         end for;
 
         //Top
-//        der(rhof[Nz]) * hf[Nz] + 
         rhof[Nz] * der(hf[Nz]) = 
         -2*kf[Nz-1]*kf[Nz]/(kf[Nz-1]+kf[Nz]) * (Tf[Nz]-Tf[Nz-1])/(dz^2)
         +rhof[Nz]*uf[Nz]/epsilon*(hf[Nz-1]-hf[Nz])/dz
@@ -173,7 +213,7 @@ equation
         -U_top*(Tf[Nz]-T_amb)/(epsilon*dz);
     end if;
 
-  //Fluid Property evaluation SolarSalt
+  //Fluid Property evaluation
   for i in 1:Nz loop
     hf[i] = fluid[i].h;
     Tf[i] = fluid[i].T;
@@ -196,13 +236,7 @@ equation
       Nu[i] = 2.0;
     end if;
     hv[i] = 6.0 * (1.0 - epsilon) * Nu[i] * kf[i] / (ds * ds); //Note that filler surface area correction factor is applied elsewhere.
-    P_f[i] = rhof[i] * der(hf[i]) * dz * A * epsilon;
-    P_s[i] = rhos * cps * der(Ts[i]) * dz * A * (1-epsilon);
-    der(E_f[i]) = P_f[i];
-    der(E_s[i]) = P_s[i];
   end for;
-  Pf = sum(P_f);
-  Ps = sum(P_s);
 
   //Particle energy balance
   cps * der(Ts[1]) = hv[1] * (Tf[1] - Ts[1]) / ((1 - epsilon) * rhos) + ks / rhos * (2*(Ts[2] - Ts[1])) / (dz*dz);
@@ -219,7 +253,7 @@ equation
   p_drop_total = sum(p_drop);
 
 annotation(
-    experiment(StopTime = 5000, StartTime = 0, Tolerance = 1e-6, Interval = 1),
+    experiment(StopTime = 172800, StartTime = 0, Tolerance = 1e-6, Interval = 60),
     Diagram(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Icon(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Documentation(info =

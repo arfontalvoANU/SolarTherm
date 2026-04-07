@@ -125,6 +125,11 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   Integer state;
   SI.Time t_next_event;
 
+  // Utilisation
+  SI.Energy Ei[Nz];
+  SI.Energy E;
+  Real level;
+
 protected
   Medium.State fluid[Nz]"Fluid object array";
 
@@ -264,6 +269,12 @@ equation
   end for;
 
   p_drop_total = sum(p_drop);
+
+  for i in 1:Nz loop
+    der(Ei[i]) = rhof[i]*A*dz*epsilon*der(hf[i]) + rhos*A*dz*(1-epsilon)*cps*der(Ts[i]);
+  end for;
+  E = sum(Ei);
+  level = E/E_max;
 
 annotation(
     experiment(StopTime = 172800, StartTime = 0, Tolerance = 1e-6, Interval = 60),

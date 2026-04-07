@@ -42,10 +42,9 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
 
   //Thermal Losses
   parameter SI.Area A_loss_tank = CN.pi*D_tank*D_tank*0.5 + CN.pi*D_tank*H_tank "Heat loss area (m2)";
-  parameter SI.CoefficientOfHeatTransfer U_loss_tank = 0.678 "Heat loss coeff of surfaces (W/m2K)";
-  parameter SI.CoefficientOfHeatTransfer U_wall = U_loss_tank "Cylinder wall heat loss coeff (W/m2K)";
-  parameter SI.CoefficientOfHeatTransfer U_top = U_loss_tank "Top circle heat loss coeff (W/m2K)";
-  parameter SI.CoefficientOfHeatTransfer U_bot = U_loss_tank "Bottom circle heat loss coeff (W/m2K)";
+  parameter SI.CoefficientOfHeatTransfer U_wall = 0.678 "Cylinder wall heat loss coeff (W/m2K)";
+  parameter SI.CoefficientOfHeatTransfer U_top = 0.0 "Top circle heat loss coeff (W/m2K)";
+  parameter SI.CoefficientOfHeatTransfer U_bot = 0.0 "Bottom circle heat loss coeff (W/m2K)";
 
   //Inititalize temperature and enthalpy profile
   parameter SI.Temperature Tf_start[Nz] = fill(T_start,Nz);
@@ -59,17 +58,22 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   parameter SI.Density rhof_max = Medium.rho_Tf(T_max,0);
 
     //Discretization
-  parameter SI.Length dz = H_tank / Nz "discretization vertical length of fluid";
-
   parameter Integer Nz = 200 "Number of finite volume elements in fluid";
+  parameter SI.Length dz = H_tank / Nz "discretization vertical length of fluid";
+  parameter SI.Length z[Nz] = linspace(0, H_tank, Nz);
+
+  // Control
+  parameter Real h_standby = 2;
+  final parameter SI.Time t_standby = 3600*h_standby;
 
   //Initialise Fluid Array
-  parameter SI.Length z[Nz] = linspace(0, H_tank, Nz);
   SI.Temperature Tf[Nz] "(K)";
   SI.SpecificEnthalpy hf[Nz](start = hf_start) "J/kg";
 
   //Inlet and outlet enthalpies and temperatures
   SI.SpecificEnthalpy h_in(start = hf_max) "Inlet Enthalpy depends on mass flow direction (J/kg)";
+  SI.Temperature T_top(start = T_start);
+  SI.Temperature T_bot(start = T_start);
 
   //Mass flow rates and superficial velocity
   SI.MassFlowRate m_flow "kg/s";
@@ -99,19 +103,17 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   // Importing weather data file
   parameter String weather_file = Modelica.Utilities.Files.loadResource("/home/arfontalvo/Dropbox/PROJECTS/RMIT/Section1DV2/weather_file.motab");
 
-  // Models
+  // Weather Input
   Modelica.Blocks.Sources.CombiTimeTable weather(
       columns = {2,3},
       fileName = weather_file,
       tableName = "weather",
       tableOnFile = true,
   smoothness=Modelica.Blocks.Types.Smoothness.ContinuousDerivative);
-  SI.Temperature T_amb;
-  parameter Real h_standby = 2;
-  final parameter SI.Time t_standby = 3600*h_standby;
-  Integer state;
-  SI.Time t_start_discharging;
 
+  SI.Temperature T_amb;
+
+  // Control Variables
   Modelica.Blocks.Continuous.LimPID pid_chg(
     Ti = 60,
     k = 1.0,
@@ -120,21 +122,23 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
     y_start = m_flow_chg,
     initType = Modelica.Blocks.Types.InitPID.InitialOutput,
     limitsAtInit = true);
+  Integer state;
+  SI.Time t_next_event;
 
 protected
   Medium.State fluid[Nz]"Fluid object array";
 
 algorithm
     when Tf[1] > T_stop_charging then
-        t_start_discharging := time + t_standby;
+        t_next_event := time + t_standby;
         state := 1;
     end when;
-    when time > t_start_discharging and state < 2 then
-        t_start_discharging := time + t_standby;
+    when time > t_next_event and state < 2 then
+        t_next_event := time + t_standby;
         state := 2;
     end when;
     when Tf[Nz] < T_stop_discharging and state > 0 then
-        t_start_discharging := time + t_standby;
+        t_next_event := time + t_standby;
         state := 0;
     end when;
 
@@ -143,14 +147,19 @@ initial equation
     fluid[i].h = hf_start[i];
   end for;
   m_flow = -m_flow_chg;
-  t_start_discharging = 1e6;
+  t_next_event = 1e6;
   state = 0;
   h_in = hf_max;
 
 equation
+    // Time-dependent ambient temperature
     T_amb = Modelica.SIunits.Conversions.from_degC(weather.y[1]);
+
+    // Controlled
     pid_chg.u_m = Tf[1];
     pid_chg.u_s = T_stop_charging;
+
+    // State Logic
     if state == 2 then
         m_flow = m_flow_dis;
         h_in = hf_min;
@@ -158,6 +167,10 @@ equation
         m_flow = -pid_chg.y;
         h_in = hf_max;
     end if;
+
+    // Top and Bottom temperatures
+    T_top = Tf[Nz];
+    T_bot = Tf[1];
 
     if m_flow < 0 then
         //Bottom

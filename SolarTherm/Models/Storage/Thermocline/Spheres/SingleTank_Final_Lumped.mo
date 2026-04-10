@@ -9,34 +9,28 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   replaceable package Medium = SolarTherm.Media.Sodium.Sodium_pT;
   replaceable package Fluid_Package = SolarTherm.Materials.PartialMaterial;
   replaceable package Filler_Package = SolarTherm.Materials.PartialMaterial;
-  replaceable package Encapsulation_Package = Filler_Package; //Defaults to filler material
   
   //Storage Parameter Settings
   parameter Integer Correlation = 1 "Interfacial convection correlation {1 = WakaoKaguei, 2 = MelissariArgyropoulos, 3 = Conservative}";
-    //Storage CApacity
+
+  //Storage CApacity
   parameter SI.Energy E_max = 144.0e9 "Maximum storage capacity";
   
-    //Aspect ratios (H/D) of tank
-  parameter SI.Length H_tank = 1.2;
+  //Aspect ratios (H/D) of tank
+  parameter SI.Height H_tank = 1.2;
   parameter SI.Diameter D_tank = 0.148;
   
-    //Porosity of tank filler materials
-  parameter Real eta = 0.4 "Porosity";
+  //Porosity of tank filler materials
+  parameter Real epsilon = 0.4 "Porosity";
   
-    //Filler diameter of materials
-  parameter SI.Length d_p = 0.02 "Filler sphere diameter";
+  //Filler diameter of materials
+  parameter SI.Length ds = 0.02 "Filler sphere diameter";
   
-    //Encapsulation thickness
-  parameter SI.Length t_e = d_p/(2*N_p) "Encapsulation thickness"; //Defaults to equidistant radial discretization
+  //Discretization Settings
+  parameter Integer Nz = 10;
   
-    //Discretization Settings
-  parameter Integer N_f = 10;
-  parameter Integer N_p = 5;
-  
-  parameter Real C_ax = 0.4;
-    
   //Heat loss coefficient of tanks
-  parameter SI.CoefficientOfHeatTransfer U_loss_tank = 0.1 "W/m2K";
+  parameter SI.CoefficientOfHeatTransfer U_wall = 0.1 "W/m2K";
   
   //Temperature Settings
   parameter SI.Temperature T_min = 293 "Minimum temperature (design) also starting T";
@@ -44,6 +38,36 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   parameter SI.Temperature T_start = 293 "Initial (uniform) temperature of all components (K), defaults to T_min";
 
   //Input and Output Ports
+  Modelica.Blocks.Interfaces.RealOutput T_top_measured "Temperature at the top of the tank as an output signal (K)"
+    annotation (Placement(visible = true,
+      transformation(extent = {{40, 50}, {60, 70}}, rotation = 0),
+      iconTransformation(origin = {45, 55}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+
+  Modelica.Blocks.Interfaces.RealOutput T_bot_measured "Temperature at the bottom of the tank as an output signal (K)"
+    annotation (Placement(visible = true,
+      transformation(extent = {{40, -70}, {60, -50}}, rotation = 0), 
+      iconTransformation(origin = {45, -57}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+          
+  Modelica.Blocks.Interfaces.RealOutput T_p_top_measured = Tank_A.Ts[Nz] "Temperature of the innermost solid element at the the hot-end of the TES (K)"
+    annotation (Placement(visible = true,
+      transformation(extent = {{40, 36}, {60, 56}}, rotation = 0), 
+      iconTransformation(origin = {45, 43}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+
+  Modelica.Blocks.Interfaces.RealOutput T_p_bot_measured = Tank_A.Ts[1] "Temperature of the innermost solid element at the the cold-end of the TES (K)"
+    annotation (Placement(visible = true,
+      transformation(extent = {{40, -54}, {60, -34}}, rotation = 0), 
+      iconTransformation(origin = {45, -45}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+  
+  Modelica.Blocks.Interfaces.RealOutput h_bot_outlet "Enthaply at the bottom of the tank as an output signal (J/kg)"
+    annotation (Placement(visible = true,
+      transformation(origin = {-40, -70},extent = {{-10, -10}, {10, 10}}, rotation = -90),
+      iconTransformation(origin = {-27, -69}, extent = {{-5, -5}, {5, 5}}, rotation = -90)));
+          
+  Modelica.Blocks.Interfaces.RealOutput h_top_outlet "Enthaply at the top of the tank as an output signal (J/kg)"
+    annotation (Placement(visible = true,
+      transformation(origin = {-40, 56},extent = {{10, -10}, {-10, 10}}, rotation = -90),
+      iconTransformation(origin = {-27, 65}, extent = {{5, -5}, {-5, 5}}, rotation = -90)));
+
   Modelica.Blocks.Interfaces.RealInput T_amb "Ambient Temperature"
     annotation (
         Placement(
@@ -73,21 +97,17 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   SolarTherm.Models.Storage.Thermocline.Spheres.Section_Final_Lumped Tank_A(
     redeclare replaceable package Fluid_Package = Fluid_Package,
     redeclare replaceable package Filler_Package = Filler_Package,
-    redeclare replaceable package Encapsulation_Package = Encapsulation_Package,
     Correlation = Correlation,
     E_max = E_max,
-    eta = eta,
-    d_p = d_p,
+    epsilon = epsilon,
+    ds = ds,
     T_min = T_min,
     T_max = T_max,
     T_start = T_start,
-    N_f = N_f,
-    N_p = N_p,
-    U_loss_tank = U_loss_tank,
+    Nz = Nz,
+    U_wall = U_wall,
     H_tank = H_tank,
-    D_tank = D_tank,
-    C_ax = C_ax,
-    t_e = t_e) 
+    D_tank = D_tank) 
     annotation (
         Placement(
             visible = true,
@@ -100,16 +120,24 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
                 extent={{-10, -10}, {10, 10}},
                 rotation=0)));
 
+  Modelica.Blocks.Interfaces.RealOutput Level "Theoretical Tank Level"
+    annotation (Placement(visible = true,
+      transformation(extent = {{40, 16}, {60, 36}}, rotation = 0),
+      iconTransformation(origin = {45, 21}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+
   //Tank Non-dimensionalized vertical axis
-  parameter Real ZDH[N_f] = Tank_A.ZDH;
+  final parameter Real ZDH[Nz] = Tank_A.ZDH;
   
   //Plotting Temperature degC
-  Real T_f_degC[N_f](start=fill(T_min,N_f));
+  Real Tf_degC[Nz](start=fill(T_min,Nz));
   
   //Analysis of fluid entering and exiting storage
   Fluid_Package.State fluid_top "Fluid entering/exiting top";
   Fluid_Package.State fluid_bot "Fluid entering/exiting bottom";
   
+  SI.Pressure p_drop_total "Sum of all pressure drops (Pa)";
+  SI.Power W_dot_loss_pump "losses due to pressure drop (W)";
+
 equation
   if fluid_a.m_flow > 1e-6 then
     fluid_top.h = inStream(fluid_a.h_outflow);
@@ -122,7 +150,14 @@ equation
     fluid_bot.T = 298.15;
   end if;
   //Convert from Kelvin to degC for easier plotting
-  T_f_degC = (Tank_A.T_f).-273.15;
+  Tf_degC = (Tank_A.Tf).-273.15;
+  
+  //Calculate tank energy level
+  Level = Tank_A.Level;
+  
+  //Determine tank outlet enthalpy used by external control system
+  h_bot_outlet = Tank_A.hf[1];
+  h_top_outlet = Tank_A.hf[Nz];
   
   //Mass balance
   fluid_a.m_flow = -1.0*fluid_b.m_flow; //always true for a steady state component
@@ -141,6 +176,11 @@ equation
   fluid_a.p = p_amb;
   fluid_b.p = p_amb;
   T_amb = Tank_A.T_amb;
+  T_top_measured = Tank_A.Tf[Nz];
+  T_bot_measured = Tank_A.Tf[1];
+
+  p_drop_total = Tank_A.p_drop_total;
+  W_dot_loss_pump = Tank_A.W_loss_pump;
 
 annotation(
     Icon(graphics = {

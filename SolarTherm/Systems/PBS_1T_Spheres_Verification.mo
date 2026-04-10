@@ -1,5 +1,4 @@
 within SolarTherm.Systems;
-
 model PBS_1T_Spheres_Verification "Packed-bed storage with air and spheres os steatite"
     import SI = Modelica.SIunits;
     import CN = Modelica.Constants;
@@ -17,45 +16,44 @@ model PBS_1T_Spheres_Verification "Packed-bed storage with air and spheres os st
     parameter Integer Correlation = 1 "Wakao & Kaguei";
 
     //Numerical Discretisation
-    parameter Integer N_f = 100 "Number of fluid CVs in each tank";//360
-    parameter Integer N_p = 10 "Number of filler CVs  in main tank";
+    parameter Integer Nz = 200 "Number of fluid CVs in each tank";//360
 
     //Design Parameters
     parameter SI.Energy E_max = 20 * 3.6e9 "Storage capacity (J)";
-    parameter SI.Temperature T_max = currentCase.T_max "Maximum temperature";
-    parameter SI.Temperature T_min = currentCase.T_min "Minimum temperature";
+    parameter SI.Temperature T_min = 613 "Minimum temperature";
+    parameter SI.Temperature T_max = 1173 "Maximum temperature";
     parameter SI.Temperature T_start = 293 "Packed-bed initial temperature";
-    parameter Real eta = 0.4 "Packed-bed porosity"; 
-    parameter SI.Length H_tank = currentCase.H_tank;
-    parameter SI.Diameter D_tank = currentCase.D_tank;
-    parameter SI.CoefficientOfHeatTransfer U_loss_tank = currentCase.U_loss_tank "W/m2K";
-    parameter SI.Length d_p = 0.02 "Filler diameter";
-    parameter SI.MassFlowRate m_flow = currentCase.m_flow;
-    parameter Real C_ax = 0.0;
-  
+    final parameter SI.Temperature T_stop_charging = T_max - 0.85*(T_max - T_min);
+    final parameter SI.Temperature T_stop_discharging = T_min + 0.85*(T_max - T_min);
+    parameter Real epsilon = 0.4 "Packed-bed porosity";
+    parameter SI.Length ds = 0.03 "Filler diameter";
+    parameter SI.Length H_tank = 8 "Tank height";
+    parameter SI.Diameter D_tank = 3.44 "Tank diameter";
+    parameter SI.CoefficientOfHeatTransfer U_wall = 0.678 "W/m2K";
+
     // Calculated parameters
-    parameter SI.SpecificEnthalpy h_f_min = Fluid_Package.h_Tf(T_min, 0.0);
-    parameter SI.SpecificEnthalpy h_f_max = Fluid_Package.h_Tf(T_max, 1.0);
-    parameter Modelica.SIunits.Power P = 10e6 "Charging/discharging rate (W)";
-    parameter SI.MassFlowRate m_flow_charge = P / (h_f_max - h_f_min);
+    parameter SI.SpecificEnthalpy h_f_min = Fluid_Package.h_Tf(T_min, 0);
+    parameter SI.SpecificEnthalpy h_f_max = Fluid_Package.h_Tf(T_max, 1);
+    parameter SI.Power P_charging = 10e6 "Charging rate (W)";
+    parameter SI.Power P_discharging = 5e6 "Discharging rate (W)";
+    parameter SI.MassFlowRate m_flow_charge = P_charging / (h_f_max - h_f_min);
+    parameter SI.MassFlowRate m_flow_discharge = P_discharging / (h_f_max - h_f_min);
 
     //Models
     SolarTherm.Models.Storage.Thermocline.Spheres.SingleTank_Final_Lumped TES(
         redeclare package Medium = Medium,
         redeclare package Fluid_Package = Fluid_Package,
         redeclare package Filler_Package = Filler_Package,
-        N_f = N_f,
-        N_p = N_p,
+        Nz = Nz,
         T_max = T_max,
         T_min = T_min,
         T_start = T_start,
         E_max = E_max,
         H_tank = H_tank,
         D_tank = D_tank,
-        eta = eta,
-        d_p = d_p,
-        U_loss_tank = U_loss_tank,
-        C_ax = C_ax,
+        epsilon = epsilon,
+        ds = ds,
+        U_wall = U_wall,
         Correlation = Correlation) 
         annotation(Placement(
             visible = true, 
@@ -202,24 +200,57 @@ model PBS_1T_Spheres_Verification "Packed-bed storage with air and spheres os st
                 rotation = 180)));
 
     //Mass flow Signals starts in charging state
-    SI.MassFlowRate m_char(start = m_flow);
-    SI.MassFlowRate m_disc(start = 0.0);
-    parameter SI.Temperature T_stop_ch = T_max - 0.85 * (T_max - T_min);
-    parameter SI.Temperature T_stop_di = T_min + 0.90 * (T_max - T_min);
+    SI.MassFlowRate m_char(start = m_flow_charge);
+    SI.MassFlowRate m_disc(start = 0);
+
+    // Control
+    parameter Real h_standby = 12;
+    final parameter SI.Time t_standby = 3600*h_standby;
+
+    // Control Variables
+    Modelica.Blocks.Continuous.LimPID pid_chg(
+      Ti = 60,
+      k = 1,
+      yMin = 0,
+      yMax = m_flow_charge,
+      y_start = m_flow_charge,
+      initType = Modelica.Blocks.Types.InitPID.InitialOutput,
+      limitsAtInit = true);
+
+    Integer state;
+    SI.Time t_next_event;
 
 algorithm
-    when time > 0 then //Start charging
-        m_char := m_flow;
-        m_disc := 0.0;
-    elsewhen TES.Tank_A.T_f[1] >= T_stop_ch then
-        m_char := 0.0;
-        m_disc := m_flow;
-    elsewhen TES.Tank_A.T_f[N_f] <= T_stop_di then
-        m_char := m_flow;
-        m_disc := 0.0;
+    when TES.Tank_A.Tf[1] > T_stop_charging then
+        t_next_event := time + t_standby;
+        state := 1;
+    end when;
+    when time > t_next_event and state < 2 then
+        t_next_event := time + t_standby;
+        state := 2;
+    end when;
+    when TES.Tank_A.Tf[Nz] < T_stop_discharging and state > 0 then
+        t_next_event := time + t_standby;
+        state := 0;
     end when;
 
 equation
+    // Controlled
+    pid_chg.u_m = TES.Tank_A.Tf[1];
+    pid_chg.u_s = T_stop_charging;
+
+    // State Logic
+    if state == 2 then
+        m_char = 0;
+        m_disc = m_flow_discharge;
+    elseif state == 1 then
+        m_char = 1e-12;
+        m_disc = 0;
+    else
+        m_char = pid_chg.y;
+        m_disc = 0;
+    end if;
+
     connect(T_amb.y, TES.T_amb) annotation(
     Line(points = {{-19, 8}, {-10, 8}}, color = {0, 0, 127}));
     connect(P_amb.y, TES.p_amb) annotation(
@@ -256,7 +287,7 @@ equation
     Line(points = {{70, 80}, {50, 80}, {50, -42}}, color = {0, 0, 127}));
 
 annotation(
-    experiment(StopTime = 5000, StartTime = 0, Tolerance = 1e-4, Interval = 60),
+    experiment(StopTime = 864000, StartTime = 0, Tolerance = 1e-6, Interval = 60),
     Diagram(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Icon(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Documentation(info =

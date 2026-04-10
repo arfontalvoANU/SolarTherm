@@ -39,6 +39,7 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   parameter SI.Density rhof_avg = 0.5*(rhof_max + rhof_min);
   parameter SI.Mass mf = epsilon*V*rhof_avg;
   parameter SI.Energy E_max = mf*(hf_max-hf_min) + ms*cps*(T_max-T_min);
+  parameter SI.Energy E_init = mf*(hf_min - h_start) + ms*cps*(T_min - T_start);
 
   //Thermal Losses
   parameter SI.Area A_loss_tank = CN.pi*D_tank*D_tank*0.5 + CN.pi*D_tank*H_tank "Heat loss area (m2)";
@@ -49,7 +50,8 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   //Inititalize temperature and enthalpy profile
   parameter SI.Temperature Tf_start[Nz] = fill(T_start,Nz);
   parameter SI.Temperature Ts_start[Nz] = fill(T_start, Nz);
-  parameter SI.SpecificEnthalpy hf_start[Nz] = fill(Medium.h_Tf(T_start, 0.0), Nz) "Defaults to uniform";
+  parameter SI.SpecificEnthalpy h_start = Medium.h_Tf(T_start, 0.0);
+  parameter SI.SpecificEnthalpy hf_start[Nz] = fill(h_start, Nz) "Defaults to uniform";
   //Property bounds
     //Fluid
   parameter SI.SpecificEnthalpy hf_min = Medium.h_Tf(T_min,0) "Starting enthalpy of the HTF";
@@ -63,7 +65,7 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   parameter SI.Length z[Nz] = linspace(0, H_tank, Nz);
 
   // Control
-  parameter Real h_standby = 2;
+  parameter Real h_standby = 12;
   final parameter SI.Time t_standby = 3600*h_standby;
 
   //Initialise Fluid Array
@@ -101,7 +103,7 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   SI.Density rhof[Nz] "kg/m3";
 
   // Importing weather data file
-  parameter String weather_file = Modelica.Utilities.Files.loadResource("/home/arfontalvo/Dropbox/PROJECTS/RMIT/Section1DV2/weather_file.motab");
+  parameter String weather_file = Modelica.Utilities.Files.loadResource("resources/BARRA-output-local--38.21-146.47-2024.motab");
 
   // Weather Input
   Modelica.Blocks.Sources.CombiTimeTable weather(
@@ -128,7 +130,6 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   // Utilisation
   SI.Energy Ei[Nz];
   SI.Energy E;
-  Real level;
 
 protected
   Medium.State fluid[Nz]"Fluid object array";
@@ -150,11 +151,11 @@ algorithm
 initial equation
   for i in 1:Nz loop
     fluid[i].h = hf_start[i];
+    Ei[i] = 0;
   end for;
   m_flow = -m_flow_chg;
   t_next_event = 1e6;
   state = 0;
-  h_in = hf_max;
 
 equation
     // Time-dependent ambient temperature
@@ -271,10 +272,13 @@ equation
   p_drop_total = sum(p_drop);
 
   for i in 1:Nz loop
-    der(Ei[i]) = rhof[i]*A*dz*epsilon*der(hf[i]) + rhos*A*dz*(1-epsilon)*cps*der(Ts[i]);
+    if Tf[i] >= T_min and Ts[i] >= T_min then
+      der(Ei[i]) = rhof[i]*A*dz*epsilon*der(hf[i]) + rhos*A*dz*(1-epsilon)*cps*der(Ts[i]);
+    else
+      der(Ei[i]) = 0;
+    end if;
   end for;
   E = sum(Ei);
-  level = E/E_max;
 
 annotation(
     experiment(StopTime = 172800, StartTime = 0, Tolerance = 1e-6, Interval = 60),

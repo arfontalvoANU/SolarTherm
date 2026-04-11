@@ -32,7 +32,7 @@ class TestScheduler(unittest.TestCase):
         sim = simulation.Simulator(fn)
         sim.compile_model()
         sim.compile_sim(args=['-s'])
-        sim.simulate(start=0, stop='2d', step='60s', solver='dassl', nls='homotopy', tolerance = '1e-06')
+        sim.simulate(start=0, stop='10d', step='60s', solver='dassl', nls='homotopy', tolerance = '1e-06')
         self.mat = DyMat.DyMatFile(sim.res_fn)
 
     def test_sched(self):
@@ -104,8 +104,8 @@ class TestScheduler(unittest.TestCase):
         np.savetxt('PackedBedData.csv',csv,delimiter=',',header=headers,comments='')
 
         csv = times
-        csv = np.c_[csv,self.mat.data('Tf[1]'),self.mat.data(f'Tf[{nz}]')]
-        np.savetxt('TimeSeries.csv',csv,delimiter=',',header='t,Tb,Tt',comments='')
+        csv = np.c_[csv,self.mat.data('Tf[1]'),self.mat.data(f'Tf[{nz}]'),self.mat.data(f'E')]
+        np.savetxt('TimeSeries.csv',csv,delimiter=',',header='t,Tb,Tt,E',comments='')
 
         plt.tight_layout()
         plt.show()

@@ -20,8 +20,7 @@ model WindPV_Thermocline_Control
   parameter SI.MassFlowRate m_flow_0 = 1e-8 "Minimum mass flow rate through any pipe";
   parameter SI.MassFlowRate m_flow_min = 1e-8 "minimum mass flow rate to start"; //used to be 1e-7 for both
   parameter SI.MassFlowRate m_flow_tol = 0.001*m_flow_boiler_des "Hysteresis tolerance of 0.1% of design PB mass flow rate used for the controller";
-  
-  //Storage control parameters 
+  //Storage control parameters
   parameter SI.Energy E_max = 12.0*3600.0*800.0e6 "Ideal storage capacity (J)"; 
   parameter SI.Time t_stor_cap = E_max/Q_flow_boiler_des "Just the ideal storage capacity in terms of seconds (s)";
   parameter Real level_mid = 0.50 "Midpoint storage level determined via component-level analysis.";
@@ -45,36 +44,32 @@ model WindPV_Thermocline_Control
   Boolean Boil(start=true) "Can the Boiler be turned on?";
   
   Modelica.Blocks.Interfaces.RealInput Level "Tank Storage Level 0-100"
-    annotation (Placement(visible = true, transformation(extent = {{-124, 24}, {-84, 64}}, rotation = 0), iconTransformation(extent = {{-126, 6}, {-86, 46}}, rotation = 0)));
+    annotation (Placement(visible = true, transformation(extent = {{-124, 24}, {-84, 64}}, rotation = 0), iconTransformation(extent = {{-126, -20}, {-86, 20}}, rotation = 0)));
   
-  Modelica.Blocks.Interfaces.RealInput T_top_tank "Temperature of the top of HTF in storage (K)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, -4}, {-84, 36}}, rotation = 0), iconTransformation(extent = {{-126, -36}, {-86, 4}}, rotation = 0)));
+  Modelica.Blocks.Interfaces.RealInput T_top_tank "Temperature of the top of HTF in storage (K)";
     
-  Modelica.Blocks.Interfaces.RealInput T_bot_tank "Temperature of the bottom of HTF in storage (K)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, -30}, {-84, 10}}, rotation = 0), iconTransformation(extent = {{-126, -78}, {-86, -38}}, rotation = 0)));
+  Modelica.Blocks.Interfaces.RealInput T_bot_tank "Temperature of the bottom of HTF in storage (K)";
     
-  Modelica.Blocks.Interfaces.RealOutput m_flow_boiler_signal(start=1.0e-8) "Signal output to the boiler loop pump (kg/s)." annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(extent = {{90, -12}, {130, 28}}, rotation = 0))) ;
+  Modelica.Blocks.Interfaces.RealOutput m_flow_boiler_signal(start=1.0e-8) "Signal output to the boiler loop pump (kg/s)." annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(origin = {0, 112},extent = {{-20, -20}, {20, 20}}, rotation = 90))) ;
   
-  Modelica.Blocks.Interfaces.RealOutput m_flow_heater_signal(start=1.0e-8) "Signal output to the heater loop pump (kg/s)." annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(extent = {{90, 38}, {130, 78}}, rotation = 0))) ;
+  Modelica.Blocks.Interfaces.RealOutput m_flow_heater_signal(start=1.0e-8) "Signal output to the heater loop pump (kg/s)." annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(origin = {56, -110},extent = {{-20, -20}, {20, 20}}, rotation = -90))) ;
   
-  Modelica.Blocks.Interfaces.RealOutput Q_flow_curtail(start=Q_flow_boiler_des) "Signal output to the heater stating the required curtailed heating rate (W)" annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(origin = {-108, -90},extent = {{-20, -20}, {20, 20}}, rotation = 180))) ;
+  Modelica.Blocks.Interfaces.RealOutput Q_flow_curtail(start=Q_flow_boiler_des) "Signal output to the heater stating the required curtailed heating rate (W)" annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(origin = {-56, -110},extent = {{-20, -20}, {20, 20}}, rotation = 270))) ;
   
-  Modelica.Blocks.Interfaces.BooleanOutput curtail(start=false) "Signal output to the heater stating the need for curtailment." annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(extent = {{90, -60}, {130, -20}}, rotation = 0))) ;
+  Modelica.Blocks.Interfaces.BooleanOutput curtail(start=false) "Signal output to the heater stating the need for curtailment." annotation (Placement(visible = true, transformation(extent = {{90, -20}, {130, 20}}, rotation = 0), iconTransformation(origin = {0, -110},extent = {{-20, -20}, {20, 20}}, rotation = -90))) ;
 
   Modelica.Blocks.Interfaces.RealInput Q_flow_heater_raw "Input signal from the heater stating the available heating rate (W)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, 52}, {-84, 92}}, rotation = 0), iconTransformation(extent = {{-126, 48}, {-86, 88}}, rotation = 0)));
+    annotation (Placement(visible = true, transformation(extent = {{-124, 52}, {-84, 92}}, rotation = 0), iconTransformation(origin = {-56, 112},extent = {{-20, -20}, {20, 20}}, rotation = -90)));
   
   Modelica.Blocks.Interfaces.RealInput Q_flow_demand "Input signal from the scheduler stating the heat-rate demanded by the boiler (W)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, -102}, {-84, -62}}, rotation = 0), iconTransformation(origin = {70, 112},extent = {{-20, -20}, {20, 20}}, rotation = -90)));
+    annotation (Placement(visible = true, transformation(extent = {{-124, -102}, {-84, -62}}, rotation = 0), iconTransformation(origin = {56, 112},extent = {{-20, -20}, {20, 20}}, rotation = -90)));
   
   Modelica.Blocks.Interfaces.RealInput h_boiler_outlet "Cold outlet enthalpy from the boiler (J/kg)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, -54}, {-84, -14}}, rotation = 0), iconTransformation(origin = {14, 112},extent = {{-20, -20}, {20, 20}}, rotation = -90)));
+    annotation (Placement(visible = true, transformation(extent = {{-124, -54}, {-84, -14}}, rotation = 0), iconTransformation(origin = {102, -2},extent = {{-20, -20}, {20, 20}}, rotation = 180)));
     
-  Modelica.Blocks.Interfaces.RealInput h_tank_bot "Enthalpy of the HTF coming out of bottom of tank (J/kg)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, -78}, {-84, -38}}, rotation = 0), iconTransformation(origin = {-40, 112},extent = {{-20, -20}, {20, 20}}, rotation = -90)));
+  Modelica.Blocks.Interfaces.RealInput h_tank_bot "Enthalpy of the HTF coming out of bottom of tank (J/kg)";
     
-  Modelica.Blocks.Interfaces.RealInput h_tank_top "Enthalpy of the HTF coming out of top of tank (J/kg)"
-    annotation (Placement(visible = true, transformation(extent = {{-124, 80}, {-84, 120}}, rotation = 0), iconTransformation(origin = {-90, 112},extent = {{-20, -20}, {20, 20}}, rotation = -90)));
+  Modelica.Blocks.Interfaces.RealInput h_tank_top "Enthalpy of the HTF coming out of top of tank (J/kg)";
 
 initial algorithm
   //Just determine if the storage can be discharged right at the start of simulation.

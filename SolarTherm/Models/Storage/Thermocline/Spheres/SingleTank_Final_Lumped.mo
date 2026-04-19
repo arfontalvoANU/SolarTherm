@@ -27,7 +27,7 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   parameter SI.Length ds = 0.02 "Filler sphere diameter";
   
   //Discretization Settings
-  parameter Integer Nz = 10;
+  parameter Integer Nz = 100;
   
   //Heat loss coefficient of tanks
   parameter SI.CoefficientOfHeatTransfer U_wall = 0.1 "W/m2K";
@@ -38,35 +38,16 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   parameter SI.Temperature T_start = 293 "Initial (uniform) temperature of all components (K), defaults to T_min";
 
   //Input and Output Ports
-  Modelica.Blocks.Interfaces.RealOutput T_top_measured "Temperature at the top of the tank as an output signal (K)"
-    annotation (Placement(visible = true,
-      transformation(extent = {{40, 50}, {60, 70}}, rotation = 0),
-      iconTransformation(origin = {45, 55}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
-
-  Modelica.Blocks.Interfaces.RealOutput T_bot_measured "Temperature at the bottom of the tank as an output signal (K)"
-    annotation (Placement(visible = true,
-      transformation(extent = {{40, -70}, {60, -50}}, rotation = 0), 
-      iconTransformation(origin = {45, -57}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+  Modelica.Blocks.Interfaces.RealOutput T_top_measured "Temperature at the top of the tank as an output signal (K)";
+  Modelica.Blocks.Interfaces.RealOutput T_bot_measured "Temperature at the bottom of the tank as an output signal (K)";
           
-  Modelica.Blocks.Interfaces.RealOutput T_p_top_measured = Tank_A.Ts[Nz] "Temperature of the innermost solid element at the the hot-end of the TES (K)"
-    annotation (Placement(visible = true,
-      transformation(extent = {{40, 36}, {60, 56}}, rotation = 0), 
-      iconTransformation(origin = {45, 43}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+  Modelica.Blocks.Interfaces.RealOutput T_p_top_measured = Tank_A.Ts[Nz] "Temperature of the innermost solid element at the the hot-end of the TES (K)";
 
-  Modelica.Blocks.Interfaces.RealOutput T_p_bot_measured = Tank_A.Ts[1] "Temperature of the innermost solid element at the the cold-end of the TES (K)"
-    annotation (Placement(visible = true,
-      transformation(extent = {{40, -54}, {60, -34}}, rotation = 0), 
-      iconTransformation(origin = {45, -45}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+  Modelica.Blocks.Interfaces.RealOutput T_p_bot_measured = Tank_A.Ts[1] "Temperature of the innermost solid element at the the cold-end of the TES (K)";
   
-  Modelica.Blocks.Interfaces.RealOutput h_bot_outlet "Enthaply at the bottom of the tank as an output signal (J/kg)"
-    annotation (Placement(visible = true,
-      transformation(origin = {-40, -70},extent = {{-10, -10}, {10, 10}}, rotation = -90),
-      iconTransformation(origin = {-27, -69}, extent = {{-5, -5}, {5, 5}}, rotation = -90)));
+  Modelica.Blocks.Interfaces.RealOutput h_bot_outlet "Enthaply at the bottom of the tank as an output signal (J/kg)";
           
-  Modelica.Blocks.Interfaces.RealOutput h_top_outlet "Enthaply at the top of the tank as an output signal (J/kg)"
-    annotation (Placement(visible = true,
-      transformation(origin = {-40, 56},extent = {{10, -10}, {-10, 10}}, rotation = -90),
-      iconTransformation(origin = {-27, 65}, extent = {{5, -5}, {-5, 5}}, rotation = -90)));
+  Modelica.Blocks.Interfaces.RealOutput h_top_outlet "Enthaply at the top of the tank as an output signal (J/kg)";
 
   Modelica.Blocks.Interfaces.RealInput T_amb "Ambient Temperature"
     annotation (
@@ -123,7 +104,7 @@ model SingleTank_Final_Lumped "TES Component model of a single thermocline tank 
   Modelica.Blocks.Interfaces.RealOutput Level "Theoretical Tank Level"
     annotation (Placement(visible = true,
       transformation(extent = {{40, 16}, {60, 36}}, rotation = 0),
-      iconTransformation(origin = {45, 21}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
+      iconTransformation(origin = {45, 37.5}, extent = {{-5, -5}, {5, 5}}, rotation = 0)));
 
   //Tank Non-dimensionalized vertical axis
   final parameter Real ZDH[Nz] = Tank_A.ZDH;
@@ -255,8 +236,6 @@ annotation(
     Ellipse(origin = {0, -54}, fillColor = {40, 50, 200}, fillPattern = FillPattern.Sphere, extent = {{-4, 4}, {6, -6}}),
     Ellipse(origin = {-10, -54}, fillColor = {40, 50, 200}, fillPattern = FillPattern.Sphere, extent = {{-4, 4}, {6, -6}}),
     Ellipse(origin = {-20, -54}, fillColor = {40, 50, 200}, fillPattern = FillPattern.Sphere, extent = {{-4, 4}, {6, -6}}),
-    Text(origin = {-50, 50}, extent = {{-16, 7}, {6, -3}}, textString = "T_amb"), 
-    Text(origin = {-50,-55}, extent = {{-16, 10}, {8, -6}}, textString = "p_amb"), 
     Text(origin = { 75,-128}, lineColor = {0, 0, 255}, extent = {{-150, 150}, {150, 110}}, textString = "%name")}, 
     coordinateSystem(initialScale = 0.1)), 
     Documentation(

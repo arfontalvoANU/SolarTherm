@@ -35,7 +35,7 @@ model WindPVStorageSystem
   Real Capacity_Factor(start=0) "Capacity factor of the system";
   
   //Discretisation and geometry
-  parameter Integer Nz = 30;
+  parameter Integer Nz = 200;
   
   //Misc Parameters
   parameter Integer Correlation = 1;
@@ -67,8 +67,8 @@ model WindPVStorageSystem
   parameter Modelica.SIunits.Height H_tank = 8;
   parameter Real epsilon = 0.4;
   parameter Modelica.SIunits.CoefficientOfHeatTransfer U_wall = 0.339 "W/m2K";
-  parameter Modelica.SIunits.Diameter ds = 0.02 "Filler sphere diameter";
-  parameter SI.Temperature T_start = T_cold_set "Initial (uniform) temperature of all components (K), defaults to T_min";
+  parameter Modelica.SIunits.Diameter ds = 0.03 "Filler sphere diameter";
+  parameter Modelica.SIunits.Temperature T_start = T_cold_set "Initial (uniform) temperature of all components (K), defaults to T_min";
 
   SolarTherm.Models.Storage.Thermocline.Spheres.SingleTank_Final_Lumped TES(
     redeclare package Medium = Medium, 

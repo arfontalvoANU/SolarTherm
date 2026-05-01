@@ -43,52 +43,94 @@ model TankROM "TES Component model of a single thermocline tank with spherical f
   SI.Power W_dot_loss_pump "losses due to pressure drop (W)";
   SI.Energy E;
   SI.HeatFlowRate Q_TES_in, Q_loss;
-  Real e_top;
-  Real e_bot;
-  //SI.HeatFlowRate Q_loss_TES = (f_min + Level*(f_max - f_min))*E_max;
+  //************************* NEW STUFF ***************************
+  Modelica.SIunits.SpecificEnthalpy h_in "Enthalpy at inlet";
+  Modelica.SIunits.SpecificEnthalpy h_out "Enthalpy at outlet";
+  Modelica.SIunits.SpecificEnthalpy h_top "Enthalpy at TES top";
+  Modelica.SIunits.SpecificEnthalpy h_bot "Enthalpy at TES bottom";
+  final parameter SI.Density rhof_avg = (Fluid_Package.rho_Tf(T_min,0) + Fluid_Package.rho_Tf(T_max,0)) / 2;
+  final parameter Modelica.SIunits.Area A_tank = 0.25*Modelica.Constants.pi*D_tank^2;
+  final parameter Modelica.SIunits.Mass m_tank = rhof_avg*H_tank*A_tank;
+  final parameter Modelica.SIunits.Mass m_section = m_tank/Nz;
+  // Charging e_bot
+  parameter Real Cc = 644641.7434;
+  parameter Real Lc = 182774.3657;
+  parameter Real kc = 15.1010;
+  parameter Real tc = 0.6568;
+  // Discharging e_top
+  parameter Real Cd = 1167096.5487;
+  parameter Real Ld = 207697.2662;
+  parameter Real kd = 15.0865;
+  parameter Real td = 0.3507;
+  parameter Modelica.SIunits.SpecificEnthalpy hf_start = Fluid_Package.h_Tf(T_start, 0.0);
+  Fluid_Package.State state_top;
+  Fluid_Package.State state_bot;
+
+initial equation
+  state_top.T = T_start;
+  state_bot.T = T_start;
 equation
-  e_bot = 0.741704 + 0.261359/(1 + exp(+15.317555*(Level - 0.646759)));
-  e_top = 0.723180 + 0.280802/(1 + exp(-14.901512*(Level - 0.352074))); 
-  fluid_a.m_flow + fluid_b.m_flow = 0;
-  if fluid_a.m_flow > 0 then //HTF flowing from top to bottom
+  if fluid_a.m_flow > 1e-6 then
     fluid_top.h = inStream(fluid_a.h_outflow);
-    h_top_outlet = inStream(fluid_a.h_outflow);
-    T_top_measured = fluid_top.T;
-    T_bot_measured = T_max - e_bot*(T_max-T_min);
-    fluid_bot.T = T_bot_measured;
-    fluid_bot.h = h_bot_outlet;
-    fluid_a.h_outflow = h_bot_outlet;
-    fluid_b.h_outflow = h_bot_outlet;
-    Q_loss = 16523.4053782364*Level+9663.97237617296;
-  else //discharging
+    fluid_bot.h = fluid_b.h_outflow;
+  elseif fluid_a.m_flow < -1e-6 then
+    fluid_top.h = fluid_a.h_outflow;
     fluid_bot.h = inStream(fluid_b.h_outflow);
-    h_bot_outlet = inStream(fluid_b.h_outflow);
-    T_bot_measured = fluid_bot.T;
-    T_top_measured = T_min + e_top*(T_max-T_min);
-    fluid_top.T = T_top_measured;
-    fluid_top.h = h_top_outlet;
-    fluid_a.h_outflow = h_top_outlet;
-    fluid_b.h_outflow = h_top_outlet;
-    Q_loss = 16671.4488706001*Level+9199.98246747617;
+  else
+    fluid_top.T = 298.15;
+    fluid_bot.T = 298.15;
   end if;
+  
+  //Calculate tank energy level
   der(E) = Q_TES_in - Q_loss;
   Level = E/E_max;
+  
+  //Determine tank outlet enthalpy used by external control system
+  h_bot_outlet = h_bot;
+  h_top_outlet = h_top;
+  
+  //Mass balance
+  fluid_a.m_flow + fluid_b.m_flow = 0; //always true for a steady state component
+  if fluid_a.m_flow > 0 then //mass is flowing into the top, direction is downwards so Tank_A.m_flow is (negative), charging
+    h_in = inStream(fluid_a.h_outflow);
+    m_section*der(h_top) = fluid_a.m_flow*(h_in - h_top);
+    der(h_bot) = Lc*kc*exp(-kc*(Level - tc))/(1 + exp(-kc*(Level - tc)))^2*der(Level);
+    h_out = h_bot;
+    fluid_a.h_outflow = h_in;
+    fluid_b.h_outflow = h_out;
+    Q_loss = 16523.4053782364*Level+9663.97237617296;
+  else //discharging
+    h_in = inStream(fluid_b.h_outflow);
+    m_section*der(h_bot) = fluid_b.m_flow*(h_in - h_bot);
+    der(h_top) = Ld*kd*exp(-kd*(Level - td))/(1 + exp(-kd*(Level - td)))^2*der(Level);
+    h_out = h_top;
+    fluid_a.h_outflow = h_out;
+    fluid_b.h_outflow = h_in;
+    Q_loss = 16671.4488706001*Level+9199.98246747617;
+  end if;
+
   fluid_a.p = p_amb;
   fluid_b.p = p_amb;
+  //T_amb = Tank_A.T_amb;
+  state_top.h = h_top;
+  state_bot.h = h_bot;
+  T_top_measured = state_top.T;
+  T_bot_measured = state_bot.T;
+  T_p_top_measured = state_top.T;
+  T_p_bot_measured = state_bot.T;
+
   p_drop_total = 0.0;
   W_dot_loss_pump = 0.0;
-  T_p_top_measured = fluid_top.T;
-  T_p_bot_measured = fluid_bot.T;
   annotation(
     Documentation(info = "<html>
-		<p>This model contains the fluid_a (top) and fluid_b (bottom) ports, basically a complete CSP component. 
-		This model simply connects the Thermocline_Spheres_Section models to the correct ports.</p>
-		</html>", revisions = "<html>
+        <p>This model contains the fluid_a (top) and fluid_b (bottom) ports, basically a complete CSP component. 
+        This model simply connects the Thermocline_Spheres_Section models to the correct ports.</p>
+        </html>", revisions = "<html>
         <ul>
-		<li><i>Dec 2020</i> by Zebedee Kee:<br>
-		Released first version.</li>
-		<li><i>Feb 2026</i> by Armando Fontalvo:<br>
-		Simplification for verification purposes.</li>
-		</ul>
-		</html>"));
+        <li><i>Dec 2020</i> by Zebedee Kee:<br>
+        Released first version.</li>
+        <li><i>Feb 2026</i> by Armando Fontalvo:<br>
+        Simplification for verification purposes.</li>
+        </ul>
+        </html>"));
 end TankROM;

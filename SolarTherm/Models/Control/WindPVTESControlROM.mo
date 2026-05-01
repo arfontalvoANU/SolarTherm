@@ -192,14 +192,14 @@ equation
   end if;
    
   if Control_State == 1 then //Heater charges TES, Process is off
-    Q_TES_in = Q_flow_heater_raw;
+    Q_TES_in = max(0, Q_flow_heater_raw);
     m_flow_heater_signal = max(m_flow_0,Q_flow_heater_raw/(h_target-h_tank_bot));
     m_flow_boiler_signal = m_flow_0;
     curtail = false;
     Q_flow_curtail = Q_flow_boiler_des; //Not used anyway
     
   elseif Control_State == 2 then //Heater is off, TES is discharged to run the process
-    Q_TES_in = -Q_flow_demand;
+    Q_TES_in = min(0,-Q_flow_demand);
     m_flow_heater_signal = m_flow_0;
     m_flow_boiler_signal = max(m_flow_0,m_flow_boiler_dem*(h_target-h_boiler_outlet)/(h_tank_top-h_boiler_outlet));
     curtail = false;
@@ -213,14 +213,14 @@ equation
     Q_flow_curtail = m_flow_boiler_dem*(h_target-h_boiler_outlet);
 
   elseif Control_State == 4 then //Heater output is combined with TES discharge rate to run the process.
-    Q_TES_in = Q_flow_heater_raw - Q_flow_demand;
+    Q_TES_in = min(0,Q_flow_heater_raw - Q_flow_demand);
     m_flow_heater_signal = max(m_flow_0,Q_flow_heater_raw/(h_target-h_boiler_outlet));
     m_flow_boiler_signal = max(m_flow_0, (m_flow_heater_signal*(h_tank_top-h_target) + m_flow_boiler_dem*(h_target-h_boiler_outlet))/(h_tank_top-h_boiler_outlet));
     curtail = false;
     Q_flow_curtail = Q_flow_boiler_des; //Not used anyway
 
   elseif Control_State == 5 then //Heater output is used to run the process, surplus is used to charge TES
-    Q_TES_in = Q_flow_heater_raw - Q_flow_demand;
+    Q_TES_in = max(Q_flow_heater_raw - Q_flow_demand, 0);
     m_flow_heater_signal = max(m_flow_0,(Q_flow_heater_raw + m_flow_boiler_dem*(h_boiler_outlet-h_tank_bot))/(h_target-h_tank_bot));
     m_flow_boiler_signal = max(m_flow_0,m_flow_boiler_dem);
     curtail = false;

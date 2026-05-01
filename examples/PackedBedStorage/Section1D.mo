@@ -43,7 +43,7 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
 
   //Thermal Losses
   parameter SI.Area A_loss_tank = CN.pi*D_tank*D_tank*0.5 + CN.pi*D_tank*H_tank "Heat loss area (m2)";
-  parameter SI.CoefficientOfHeatTransfer U_wall = 0.678 "Cylinder wall heat loss coeff (W/m2K)";
+  parameter SI.CoefficientOfHeatTransfer U_wall = 0.339 "Cylinder wall heat loss coeff (W/m2K)";
   parameter SI.CoefficientOfHeatTransfer U_top = 0.0 "Top circle heat loss coeff (W/m2K)";
   parameter SI.CoefficientOfHeatTransfer U_bot = 0.0 "Bottom circle heat loss coeff (W/m2K)";
 
@@ -96,6 +96,11 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   //Pressure Drop
   SI.Pressure p_drop[Nz] "Pressure drop across each mesh element";
 
+  //Thermal Losses
+  SI.HeatFlowRate Q_loss_wall[Nz] "Heat loss from the wall";
+  SI.HeatFlowRate Q_loss_top "Heat loss from the top";
+  SI.HeatFlowRate Q_loss_bot "Heat loss from the bottom";
+
   //Fluid Properties
   SI.ThermalConductivity kf[Nz] "W/mK";
   SI.DynamicViscosity muf[Nz] "Pa.s";
@@ -130,6 +135,11 @@ model Section1D "Heat transfer model of thermocline tank with spherical fillers"
   // Utilisation
   SI.Energy Ei[Nz];
   SI.Energy E;
+  Real e_top;
+  Real e_bot;
+  Real level;
+  SI.HeatFlowRate Q_loss_total "Heat loss from the entire surface area";
+  Integer cycle_number;
 
 protected
   Medium.State fluid[Nz]"Fluid object array";
@@ -146,6 +156,10 @@ algorithm
     when Tf[Nz] < T_stop_discharging and state > 0 then
         t_next_event := time + t_standby;
         state := 0;
+        cycle_number := cycle_number + 1;
+    end when;
+    when cycle_number == 10 then
+        terminate("End 10th charging/discharging cycle");
     end when;
 
 initial equation
@@ -160,6 +174,10 @@ initial equation
 equation
     // Time-dependent ambient temperature
     T_amb = Modelica.SIunits.Conversions.from_degC(weather.y[1]);
+
+    //
+    T_top = T_min + e_top*(T_max-T_min);
+    T_bot = T_max - e_bot*(T_max-T_min);
 
     // Controlled
     pid_chg.u_m = Tf[1];
@@ -264,6 +282,16 @@ equation
   end for;
   cps * der(Ts[Nz]) = hv[Nz] * (Tf[Nz] - Ts[Nz]) / ((1 - epsilon) * rhos) + ks / rhos * (2*(Ts[Nz-1] - Ts[Nz])) / (dz*dz);
 
+  //Heat loss calculations, different form than the equations above as they were in terms of rho*dh/dt not m*dh/dt
+  Q_loss_top = U_top*CN.pi*D_tank*D_tank*0.25*(Tf[Nz]-T_amb);
+  Q_loss_bot = U_bot*CN.pi*D_tank*D_tank*0.25*(Tf[1]-T_amb);
+  for i in 2:Nz-1 loop
+    Q_loss_wall[i] = U_wall*CN.pi*D_tank*(Tf[i]-T_amb)*dz;
+  end for;
+  Q_loss_wall[1] = U_wall*CN.pi*D_tank*(Tf[1]-T_amb)*dz;
+  Q_loss_wall[Nz] = U_wall*CN.pi*D_tank*(Tf[Nz]-T_amb)*dz;
+  Q_loss_total = Q_loss_top + sum(Q_loss_wall) + Q_loss_bot;
+
   //Calculated Pumping losses
   for i in 1:Nz loop
     p_drop[i] = dz*(((600*((1-epsilon)^2)*muf[i]*abs(m_flow))/((epsilon^3)*(ds^2)*rhof[i]*CN.pi*(D_tank^2)))+((28*(1-epsilon)*(m_flow^2))/((epsilon^3)*ds*rhof[i]*CN.pi*CN.pi*(D_tank^4))));
@@ -279,9 +307,10 @@ equation
     end if;
   end for;
   E = sum(Ei);
+  level = E/E_max;
 
 annotation(
-    experiment(StopTime = 172800, StartTime = 0, Tolerance = 1e-6, Interval = 60),
+    experiment(StopTime = 864000, StartTime = 0, Tolerance = 1e-6, Interval = 60),
     Diagram(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Icon(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)),
     Documentation(info =

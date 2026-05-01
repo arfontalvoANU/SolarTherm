@@ -17,8 +17,8 @@ model WindPVStorageSystem
   parameter Real HM = 2.0 "Heater Multiple";
   parameter Real PV_fraction = 0.5 "PV_fraction";
   parameter Real t_storage = 4 "Hours of storage (hours)";
-  parameter Real util_storage_des = 0.2683; //Utilisation determined via component-level analysis
-  parameter Real level_storage_mid = 0.5081; //Midpoint of minimum and maximum storage levels determine via component-level analysis
+  parameter Real util_storage_des = 0.316385129393041; //Utilisation determined via component-level analysis
+  parameter Real level_storage_mid = 0.508507587785152; //Midpoint of minimum and maximum storage levels determine via component-level analysis
   
   //Heater Parameters
   parameter Real eff_heater = 0.99 "Electrical-to-heat conversion efficiency of the heater";
@@ -233,5 +233,4 @@ equation
     Diagram(coordinateSystem(preserveAspectRatio = false, extent = {{-200, -100}, {200, 100}}, initialScale = 0.1)),
     Icon(coordinateSystem(extent = {{-100, -100}, {100, 100}}, preserveAspectRatio = false)), 
     experiment(StopTime = 3.1536e+07, StartTime = 0, Tolerance = 1.0e-6, Interval = 300, maxStepSize = 60, initialStepSize = 60));
-
 end WindPVStorageSystem;

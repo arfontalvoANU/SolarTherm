@@ -17,8 +17,8 @@ model WindPVStorageSystemROM
   parameter Real HM = 2.0 "Heater Multiple";
   parameter Real PV_fraction = 0.5 "PV_fraction";
   parameter Real t_storage = 4 "Hours of storage (hours)";
-  parameter Real util_storage_des = 0.2683; //Utilisation determined via component-level analysis
-  parameter Real level_storage_mid = 0.5081; //Midpoint of minimum and maximum storage levels determine via component-level analysis
+  parameter Real util_storage_des = 0.316385129393041; //Utilisation determined via component-level analysis
+  parameter Real level_storage_mid = 0.508507587785152; //Midpoint of minimum and maximum storage levels determine via component-level analysis
   
   //Heater Parameters
   parameter Real eff_heater = 0.99 "Electrical-to-heat conversion efficiency of the heater";
@@ -68,7 +68,7 @@ model WindPVStorageSystemROM
   parameter Real epsilon = 0.4;
   parameter Modelica.SIunits.CoefficientOfHeatTransfer U_wall = 0.339 "W/m2K";
   parameter Modelica.SIunits.Diameter ds = 0.02 "Filler sphere diameter";
-  parameter SI.Temperature T_start = T_cold_set "Initial (uniform) temperature of all components (K), defaults to T_min";
+  parameter Modelica.SIunits.Temperature T_start = T_cold_set "Initial (uniform) temperature of all components (K), defaults to T_min";
 
   SolarTherm.Models.Storage.Thermocline.TankROM TES(
     redeclare package Medium = Medium, 

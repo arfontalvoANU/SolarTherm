@@ -47,11 +47,14 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   parameter SI.Temperature Ts_start[Nz] = fill(T_start, Nz);
   parameter SI.Temperature T_e_start = T_start;
   parameter SI.SpecificEnthalpy hf_start[Nz] = fill(Fluid_Package.h_Tf(T_start, 0.0), Nz) "Defaults to uniform";
-  parameter SI.SpecificEnthalpy h_p_start[Nz] = fill(Filler_Package.h_Tf(T_start, 0.0), Nz) "Defaults to uniform";
+  //parameter SI.SpecificEnthalpy h_p_start[Nz] = fill(Filler_Package.h_Tf(T_start, 0.0), Nz) "Defaults to uniform";
   //Property bounds
     //Fluid
   parameter SI.SpecificEnthalpy hf_min = Fluid_Package.h_Tf(T_min,0) "Starting enthalpy of the HTF";
   parameter SI.SpecificEnthalpy hf_max = Fluid_Package.h_Tf(T_max,0) "Starting enthalpy of the HTF";
+  parameter SI.SpecificHeatCapacity cpf_min = Fluid_Package.cp_Tf(T_min,0);
+  parameter SI.SpecificHeatCapacity cpf_max = Fluid_Package.cp_Tf(T_max,0);
+  parameter SI.SpecificHeatCapacity cpf_avg = (cpf_min + cpf_max) / 2;
   parameter SI.Density rhof_min = Fluid_Package.rho_Tf(T_min,0);
   parameter SI.Density rhof_max = Fluid_Package.rho_Tf(T_max,0);
   parameter SI.Density rhof_avg = (rhof_min + rhof_max) / 2;
@@ -61,6 +64,10 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   parameter SI.Density rho_p_min = Filler_Package.rho_Tf(T_min, 0.0);
   parameter SI.Density rho_p_max = Filler_Package.rho_Tf(T_max, 1.0);
   parameter SI.Density rho_p = min(rho_p_min,rho_p_max) "kg/m3";
+  // Filler options
+  parameter SI.SpecificHeatCapacity cps = 1068.0 "Filler heat capacity (J/kg/K)";
+  parameter SI.Density rhos = 2680.0 "Filler density (kg/m3)";
+  parameter SI.ThermalConductivity ks = 2.5 "Filler thermal conductivity (W/m/K)";
 
     //Discretization
   parameter SI.Length dz = H_tank / Nz "discretization vertical length of fluid";
@@ -86,7 +93,7 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
 
   //Mass flow rates and superficial velocity
   SI.MassFlowRate m_flow(start=0.0) "kg/s";
-  SI.Velocity uf[Nz] "Fluid velocity in packed bed (m/s)";
+  SI.Velocity uf_avg "Average fluid velocity in packed bed (m/s)";
 
   //Analytics
   SI.Energy E_stored(start = 0.0) "Make sure the tank starts from T_min for this to be correct";
@@ -105,23 +112,21 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   parameter Real f_surface = 1.0 "Don't touch this";
 
   //Filler mass-liquid fraction
-  Real f_p[Nz](start=fill(0.0,Nz)) "Mass liquid fraction of filler";
+  //Real f_p[Nz](start=fill(0.0,Nz)) "Mass liquid fraction of filler";
 
   //Measured outlet temperature
   Real T_outlet_degC "Outlet temperature in degrees Celcius";
 
 //protected
   //Convection Properties
-  Real Pe[Nz] "Peclet Number";
-  Real Bi[Nz] "Biot Number";
   Real Re[Nz] "Reynolds";
   Real Pr[Nz] "Prandtl";
   Real Nu[Nz] "Nusselt";
   Real hv[Nz] "Volumetric heat transfer coeff (W/m3K)";
 
   //Filler Properties
-  SI.SpecificEnthalpy h_p[Nz](start=h_p_start) "J/kg";
-  SI.ThermalConductivity k_p[Nz] "W/mK";
+  //SI.SpecificEnthalpy h_p[Nz](start=h_p_start) "J/kg";
+  //SI.ThermalConductivity k_p[Nz] "W/mK";
 
   //Filler Geometry
   parameter Real N_spheres_total = (Nz * 6 * (1-epsilon) * A * dz / (CN.pi * (ds^3))) "Total number of spheres in the tank";
@@ -137,12 +142,11 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   //Fluid Properties
   SI.ThermalConductivity kf[Nz] "W/mK";
   SI.DynamicViscosity muf[Nz] "Pa.s";
-  SI.SpecificHeatCapacity c_pf[Nz] "J/kgK";
-  SI.Density rhof[Nz] "kg/m3";
+  SI.SpecificHeatCapacity cpf[Nz] "J/kg.K";
   Fluid_Package.State fluid[Nz]"Fluid object array";//(each h_start = hf_min) 
 
   //Try filler state "Remove this if using function-based calculation"
-  Filler_Package.State filler[Nz] "Filler object array";
+  //Filler_Package.State filler[Nz] "Filler object array";
   Real der_hf[Nz] "Rate of change of specific enthalpy of fluid";
 
 algorithm
@@ -152,10 +156,10 @@ algorithm
   //Bottom Charging Fluid Node
     der_hf[1] :=
     (-2*kf[1]*kf[2]/(kf[1]+kf[2]) * (Tf[1]-Tf[2])/(dz^2)
-        +rhof[1]*uf[1]/epsilon*(hf[1]-hf[2])/dz
+        +rhof_avg*uf_avg/epsilon*(hf[1]-hf[2])/dz
         -hv[1]*(Tf[1] - Ts[1])/epsilon
         -U_bot*(Tf[1]-T_amb)/(epsilon*dz)
-        -U_wall*CN.pi*D_tank*(Tf[1]-T_amb)/(epsilon*A))/(rhof[1]);
+        -U_wall*CN.pi*D_tank*(Tf[1]-T_amb)/(epsilon*A))/(rhof_avg);
     h_out := hf[1];
   //End Bottom Charging Fluid Node
   //Middle Charging Fluid Nodes
@@ -163,53 +167,53 @@ algorithm
       der_hf[i] := 
       (-2*kf[i]*kf[i-1]/(kf[i]+kf[i-1]) * (Tf[i]-Tf[i-1])/(dz^2)
             -2*kf[i]*kf[i+1]/(kf[i]+kf[i+1]) * (Tf[i]-Tf[i+1])/(dz^2)
-            +rhof[i]*uf[i]/epsilon*(hf[i]-hf[i+1])/dz
+            +rhof_avg*uf_avg/epsilon*(hf[i]-hf[i+1])/dz
             -hv[i]*(Tf[i]-Ts[i])/epsilon
-            -U_wall*CN.pi*D_tank*(Tf[i]-T_amb)/(epsilon*A))/(rhof[i]);
+            -U_wall*CN.pi*D_tank*(Tf[i]-T_amb)/(epsilon*A))/(rhof_avg);
     end for;
   //End Middle Charging Fluid Nodes
   //Top Charging Fluid Node
     der_hf[Nz] := 
     (-2*kf[Nz-1]*kf[Nz]/(kf[Nz-1]+kf[Nz]) * (Tf[Nz]-Tf[Nz-1])/(dz^2)
-        +rhof[Nz]*uf[Nz]/epsilon*(hf[Nz]-h_in)/dz
+        +rhof_avg*uf_avg/epsilon*(hf[Nz]-h_in)/dz
         -hv[Nz]*(Tf[Nz]-Ts[Nz])/epsilon
         -U_wall*CN.pi*D_tank*(Tf[Nz]-T_amb)/(epsilon*A)
-        -U_top*(Tf[Nz]-T_amb)/(epsilon*dz))/(rhof[Nz]);
+        -U_top*(Tf[Nz]-T_amb)/(epsilon*dz))/(rhof_avg);
   //End Top Charging Fluid Node
   else
   //Discharge (Mass flows bottom to top)
   //Bottom Discharge Node
     der_hf[1] :=
     (-2*kf[1]*kf[2]/(kf[1]+kf[2]) * (Tf[1]-Tf[2])/(dz^2)
-        +rhof[1]*uf[1]/epsilon*(h_in-hf[1])/dz
+        +rhof_avg*uf_avg/epsilon*(h_in-hf[1])/dz
         -hv[1]*(Tf[1] - Ts[1])/epsilon
         -U_bot*(Tf[1]-T_amb)/(epsilon*dz) 
-        -U_wall*CN.pi*D_tank*(Tf[1]-T_amb)/(epsilon*A))/(rhof[1]);
+        -U_wall*CN.pi*D_tank*(Tf[1]-T_amb)/(epsilon*A))/(rhof_avg);
   //End Bottom Discharge Node
   //Middle Discharge Nodes
     for i in 2:Nz - 1 loop
       der_hf[i] :=
       (-2*kf[i]*kf[i-1]/(kf[i]+kf[i-1]) * (Tf[i]-Tf[i-1])/(dz^2)
             -2*kf[i]*kf[i+1]/(kf[i]+kf[i+1]) * (Tf[i]-Tf[i+1])/(dz^2)
-            +rhof[i]*uf[i]/epsilon*(hf[i-1]-hf[i])/dz
+            +rhof_avg*uf_avg/epsilon*(hf[i-1]-hf[i])/dz
             -hv[i]*(Tf[i]-Ts[i])/epsilon
-            -U_wall*CN.pi*D_tank*(Tf[i]-T_amb)/(epsilon*A))/(rhof[i]);
+            -U_wall*CN.pi*D_tank*(Tf[i]-T_amb)/(epsilon*A))/(rhof_avg);
     end for;
   //End Middle Discharge Nodes
   //Top Discharge Node
     der_hf[Nz] :=
     (-2*kf[Nz-1]*kf[Nz]/(kf[Nz-1]+kf[Nz]) * (Tf[Nz]-Tf[Nz-1])/(dz^2)
-        +rhof[Nz]*uf[Nz]/epsilon*(hf[Nz-1]-hf[Nz])/dz
+        +rhof_avg*uf_avg/epsilon*(hf[Nz-1]-hf[Nz])/dz
         -hv[Nz]*(Tf[Nz]-Ts[Nz])/epsilon
         -U_wall*CN.pi*D_tank*(Tf[Nz]-T_amb)/(epsilon*A)
-        -U_top*(Tf[Nz]-T_amb)/(epsilon*dz))/(rhof[Nz]);
+        -U_top*(Tf[Nz]-T_amb)/(epsilon*dz))/(rhof_avg);
     h_out := hf[Nz];
   end if;
 
 initial equation
   for i in 1:Nz loop
-    fluid[i].h = hf_start[i];
-    filler[i].h = h_p_start[i];
+    Tf[i] = T_start;
+    Ts[i] = T_start;
   end for;
 
 equation
@@ -234,26 +238,17 @@ equation
   for i in 1:Nz loop
     hf[i] = fluid[i].h;
     Tf[i] = fluid[i].T;
-    c_pf[i] = fluid[i].cp;
-    rhof[i] = fluid[i].rho;
+    cpf[i] = fluid[i].cp;
     kf[i] = fluid[i].k;
     muf[i] = fluid[i].mu;
-    uf[i] = m_flow / (rhof[i] * A * f_area);
   end for;
-
-  //Particle Property evaluation
-  for i in 1:Nz loop
-    filler[i].h = h_p[i];
-    Ts[i] = filler[i].T;
-    f_p[i] = filler[i].f;
-    k_p[i] = filler[i].k;
-  end for;
+  uf_avg = m_flow / (rhof_avg * A * f_area);
 
   //Convection Equations
   for i in 1:Nz loop
     if abs(m_flow) > 1e-12 then //There is actually mass flowing
-      Re[i] = rhof[i] * abs(uf[i]) * ds / muf[i]; //Use local superficial velocity
-      Pr[i] = c_pf[i] * muf[i] / kf[i];
+      Re[i] = rhof_avg * abs(uf_avg) * ds / muf[i]; //Use local superficial velocity
+      Pr[i] = cpf[i] * muf[i] / kf[i];
       if Correlation == 1 then 
         Nu[i] = 2 + 1.1 * (Re[i] ^ 0.6) * (Pr[i] ^ (1 / 3)); //Wakao and Kaguei
       elseif Correlation == 2 then
@@ -274,16 +269,14 @@ equation
       Pr[i] = 0;
       Nu[i] = 2;
     end if;
-    Bi[i] = (Nu[i]*kf[i])/(6*k_p[i]); //Use outermost shell conductivity
-    Pe[i] = Re[i]*Pr[i];
     hv[i] = (f_surface)*6*(1 - epsilon) * Nu[i] * kf[i] / (ds^2); //Note that filler surface area correction factor is applied elsewhere.
   end for;
   //Particle energy balance
-  der(h_p[1]) = hv[1] * (Tf[1] - Ts[1]) / ((1 - epsilon) * rho_p) + k_p[1] / rho_p * (2*(Ts[2] - Ts[1])) / (dz*dz);
+  cps*der(Ts[1]) = hv[1] * (Tf[1] - Ts[1]) / ((1 - epsilon) * rhos) + ks / rho_p * (2*(Ts[2] - Ts[1])) / (dz*dz);
   for i in 2:Nz-1 loop
-    der(h_p[i]) = hv[i] * (Tf[i] - Ts[i]) / ((1 - epsilon) * rho_p) + k_p[i] / rho_p * (Ts[i+1] - 2*Ts[i] + Ts[i-1]) / (dz*dz);
+    cps*der(Ts[i]) = hv[i] * (Tf[i] - Ts[i]) / ((1 - epsilon) * rhos) + ks / rho_p * (Ts[i+1] - 2*Ts[i] + Ts[i-1]) / (dz*dz);
   end for;
-  der(h_p[Nz]) = hv[Nz] * (Tf[Nz] - Ts[Nz]) / ((1 - epsilon) * rho_p) + k_p[Nz] / rho_p * (2*(Ts[Nz-1] - Ts[Nz])) / (dz*dz);
+  cps*der(Ts[Nz]) = hv[Nz] * (Tf[Nz] - Ts[Nz]) / ((1 - epsilon) * rhos) + ks / rho_p * (2*(Ts[Nz-1] - Ts[Nz])) / (dz*dz);
   
   //Heat loss calculations, different form than the equations above as they were in terms of rho*dh/dt not m*dh/dt
   Q_loss_top = U_top*CN.pi*D_tank*D_tank*0.25*(Tf[Nz]-T_amb);
@@ -298,7 +291,7 @@ equation
 
   //Calculated Pumping losses
   for i in 1:Nz loop
-    p_drop[i] = dz*(((600*((1-epsilon)^2)*muf[i]*abs(m_flow))/((epsilon^3)*(ds^2)*rhof[i]*CN.pi*(D_tank^2)))+((28*(1-epsilon)*(m_flow^2))/((epsilon^3)*ds*rhof[i]*CN.pi*CN.pi*(D_tank^4))));
+    p_drop[i] = dz*(((600*((1-epsilon)^2)*muf[i]*abs(m_flow))/((epsilon^3)*(ds^2)*rhof_avg*CN.pi*(D_tank^2)))+((28*(1-epsilon)*(m_flow^2))/((epsilon^3)*ds*rhof_avg*CN.pi*CN.pi*(D_tank^4))));
   end for;
 
   p_drop_total = sum(p_drop);

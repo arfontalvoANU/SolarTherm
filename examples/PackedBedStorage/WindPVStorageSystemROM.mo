@@ -70,7 +70,7 @@ model WindPVStorageSystemROM
   parameter Modelica.SIunits.Diameter ds = 0.02 "Filler sphere diameter";
   parameter Modelica.SIunits.Temperature T_start = T_cold_set "Initial (uniform) temperature of all components (K), defaults to T_min";
 
-  SolarTherm.Models.Storage.Thermocline.TankROM TES(
+  SolarTherm.Models.Storage.Thermocline.Spheres.SingleTankROM TES(
     redeclare package Medium = Medium, 
     redeclare package Fluid_Package = Fluid, 
     redeclare package Filler_Package = Filler, 

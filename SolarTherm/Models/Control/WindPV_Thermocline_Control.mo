@@ -91,24 +91,18 @@ initial algorithm
 
 algorithm
   //Discharge Control
-  when Level > L_start_dis then
-    if T_top_tank > T_boiler_start then
-      Dis := true;
-    end if;
+  when Level > L_start_dis and T_top_tank > T_boiler_start then
+    Dis := true;
   end when;
-  when T_top_tank > T_boiler_start then
-    if Level > L_start_dis then
-      Dis := true;
-    end if;
-  end when;
-   when T_top_tank < T_boiler_min then 
+  when T_top_tank < T_boiler_min then 
     Dis := false;
   end when;
   
   //Charge Control
   when T_bot_tank > T_heater_max then 
     Chg := false;
-  elsewhen T_bot_tank < T_heater_start then
+  end when;
+  when T_bot_tank < T_heater_start then
     Chg := true;
   end when;
   

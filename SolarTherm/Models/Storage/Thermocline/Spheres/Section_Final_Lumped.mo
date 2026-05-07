@@ -34,6 +34,10 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   parameter SI.Diameter D_tank = 0.148;
   parameter Real f_area = 0.95;
   parameter SI.Area A = 0.25 * CN.pi * D_tank * D_tank "Cross sectional area of tank";
+  parameter SI.Volume V = A*H_tank;
+  parameter SI.Mass ms = (1-epsilon)*V*rhos;
+  parameter SI.Mass mf = epsilon*V*rhof_avg;
+  final parameter SI.Energy Emax = mf*(hf_max-hf_min) + ms*cps*(T_max-T_min);
 
   //Thermal Losses
   SI.Temperature T_amb;
@@ -58,12 +62,6 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   parameter SI.Density rhof_min = Fluid_Package.rho_Tf(T_min,0);
   parameter SI.Density rhof_max = Fluid_Package.rho_Tf(T_max,0);
   parameter SI.Density rhof_avg = (rhof_min + rhof_max) / 2;
-    //Filler
-  parameter SI.SpecificEnthalpy h_p_max = Filler_Package.h_Tf(T_max, 1.0);
-  parameter SI.SpecificEnthalpy h_p_min = Filler_Package.h_Tf(T_min, 0.0);
-  parameter SI.Density rho_p_min = Filler_Package.rho_Tf(T_min, 0.0);
-  parameter SI.Density rho_p_max = Filler_Package.rho_Tf(T_max, 1.0);
-  parameter SI.Density rho_p = min(rho_p_min,rho_p_max) "kg/m3";
   // Filler options
   parameter SI.SpecificHeatCapacity cps = 1068.0 "Filler heat capacity (J/kg/K)";
   parameter SI.Density rhos = 2680.0 "Filler density (kg/m3)";
@@ -96,7 +94,8 @@ model Section_Final_Lumped "Heat transfer model of thermocline tank with spheric
   SI.Velocity uf_avg "Average fluid velocity in packed bed (m/s)";
 
   //Analytics
-  SI.Energy E_stored(start = 0.0) "Make sure the tank starts from T_min for this to be correct";
+  SI.Energy Ei[Nz] "Energy stored at each section";
+  SI.Energy E(start = 0.0) "Make sure the tank starts from T_min for this to be correct";
   Real Level(start = 0.0) "Tank energy charging level (0-1)";
   SI.HeatFlowRate Q_loss_total "Heat loss from the entire surface area";
 
@@ -272,11 +271,11 @@ equation
     hv[i] = (f_surface)*6*(1 - epsilon) * Nu[i] * kf[i] / (ds^2); //Note that filler surface area correction factor is applied elsewhere.
   end for;
   //Particle energy balance
-  cps*der(Ts[1]) = hv[1] * (Tf[1] - Ts[1]) / ((1 - epsilon) * rhos) + ks / rho_p * (2*(Ts[2] - Ts[1])) / (dz*dz);
+  cps*der(Ts[1]) = hv[1] * (Tf[1] - Ts[1]) / ((1 - epsilon) * rhos) + ks / rhos * (2*(Ts[2] - Ts[1])) / (dz*dz);
   for i in 2:Nz-1 loop
-    cps*der(Ts[i]) = hv[i] * (Tf[i] - Ts[i]) / ((1 - epsilon) * rhos) + ks / rho_p * (Ts[i+1] - 2*Ts[i] + Ts[i-1]) / (dz*dz);
+    cps*der(Ts[i]) = hv[i] * (Tf[i] - Ts[i]) / ((1 - epsilon) * rhos) + ks / rhos * (Ts[i+1] - 2*Ts[i] + Ts[i-1]) / (dz*dz);
   end for;
-  cps*der(Ts[Nz]) = hv[Nz] * (Tf[Nz] - Ts[Nz]) / ((1 - epsilon) * rhos) + ks / rho_p * (2*(Ts[Nz-1] - Ts[Nz])) / (dz*dz);
+  cps*der(Ts[Nz]) = hv[Nz] * (Tf[Nz] - Ts[Nz]) / ((1 - epsilon) * rhos) + ks / rhos * (2*(Ts[Nz-1] - Ts[Nz])) / (dz*dz);
   
   //Heat loss calculations, different form than the equations above as they were in terms of rho*dh/dt not m*dh/dt
   Q_loss_top = U_top*CN.pi*D_tank*D_tank*0.25*(Tf[Nz]-T_amb);
@@ -298,8 +297,11 @@ equation
   W_loss_pump = (abs(m_flow)/rhof_avg)*p_drop_total/eff_pump;
 
   //Analyics
-  der(E_stored) = abs(m_flow) * (h_in - h_out) - Q_loss_total;
-  Level = E_stored / E_max;
+  for i in 1:Nz loop
+    der(Ei[i]) = rhof_avg*A*dz*epsilon*der_hf[i] + rhos*A*dz*(1-epsilon)*cps*der(Ts[i]);
+  end for;
+  E = sum(Ei);
+  Level = E / Emax;
 
   if m_flow > 1e-3 then //Discharging, outlet is the top
     T_outlet_degC = Tf[Nz] - 273.15;
